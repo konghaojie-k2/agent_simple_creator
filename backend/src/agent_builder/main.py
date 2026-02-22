@@ -1,0 +1,99 @@
+# -*- coding: utf-8 -*-
+"""FastAPI application entry point."""
+
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from myauth import AuthFramework
+
+from agent_builder.core.config import settings
+from agent_builder.core.database import init_db
+
+# Import routes after app is created to avoid circular imports
+from agent_builder.api.routes import agents, chat, providers
+
+
+# Global auth framework instance
+auth: AuthFramework = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    global auth
+
+    # Initialize database
+    await init_db()
+
+    # Initialize myauth
+    config_path = Path(__file__).parent.parent.parent / "config.toml"
+    if config_path.exists():
+        auth = AuthFramework(
+            db_url=settings.MYAUTH_DB_URL,
+            secret=settings.JWT_SECRET,
+            use_sqlite=True,
+            admin_email="admin@example.com",
+            admin_password="admin123",
+        )
+        
+        # Register auth framework with app for CurrentUser dependency
+        app.state.auth_framework = auth
+        
+        # Initialize auth (creates tables, admin user, etc.)
+        await auth.init(app)
+        
+        # Include myauth router
+        from myauth.router import create_auth_router
+        auth_router = create_auth_router(auth)
+        app.include_router(auth_router)
+
+    # Create workspaces directory
+    Path(settings.WORKSPACES_DIR).mkdir(parents=True, exist_ok=True)
+
+    yield
+
+    # Shutdown
+    if auth:
+        await auth.close()
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="Agent Builder API",
+    description="Simple Agent Builder with Multi-Provider Support",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers (after app is created)
+app.include_router(providers.router)
+app.include_router(agents.router)
+app.include_router(chat.router)
+
+
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {"message": "Agent Builder API", "version": "0.1.0"}
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
