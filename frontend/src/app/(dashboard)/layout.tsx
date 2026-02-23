@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 const navItems = [
   { href: '/agents', label: 'Agents' },
   { href: '/providers', label: 'Providers' },
+  { href: '/experiments', label: 'Experiments' },
+  { href: '/templates', label: 'Templates' },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

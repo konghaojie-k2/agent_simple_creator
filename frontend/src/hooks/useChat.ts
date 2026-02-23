@@ -35,6 +35,9 @@ export function useChat({ agentId, onMessage, onError }: UseChatOptions) {
         .find(row => row.startsWith('access_token='))
         ?.split('=')[1];
 
+      console.log('[useChat] Token:', token ? 'exists' : 'NOT FOUND');
+      console.log('[useChat] All cookies:', document.cookie);
+
       const response = await fetch(`${API_BASE}/api/chat/${agentId}`, {
         method: 'POST',
         headers: {

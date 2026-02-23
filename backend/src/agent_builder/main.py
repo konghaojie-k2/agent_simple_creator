@@ -4,15 +4,16 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from myauth import AuthFramework
 
 from agent_builder.core.config import settings
 from agent_builder.core.database import init_db
+from agent_builder.myauth_integration.auth import get_current_user
 
 # Import routes after app is created to avoid circular imports
-from agent_builder.api.routes import agents, chat, providers
+from agent_builder.api.routes import agents, chat, providers, experiments
 
 
 # Global auth framework instance
@@ -80,6 +81,9 @@ app.add_middleware(
 app.include_router(providers.router)
 app.include_router(agents.router)
 app.include_router(chat.router)
+app.include_router(experiments.router)
+app.include_router(experiments.templates_router)
+app.include_router(experiments.experiences_router)
 
 
 @app.get("/")
@@ -92,6 +96,15 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+@app.get("/debug/auth")
+async def debug_auth(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    """Debug endpoint to check authentication."""
+    return {"user_id": user_id, "status": "authenticated"}
 
 
 if __name__ == "__main__":

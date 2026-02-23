@@ -12,8 +12,11 @@ cd backend
 # Install dependencies (if not already)
 uv sync
 
+# Install myauth (required for authentication)
+uv pip install -e "C:\Users\17625\Documents\GitHub\my-auth"
+
 # Start the backend server
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn src.agent_builder.main:app --reload --port 8000
 ```
 
 ### 2. Frontend
