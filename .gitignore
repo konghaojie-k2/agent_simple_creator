@@ -39,3 +39,6 @@ npm-debug.log*
 
 # Workspaces
 workspaces/
+
+# Git worktrees
+.worktrees/
