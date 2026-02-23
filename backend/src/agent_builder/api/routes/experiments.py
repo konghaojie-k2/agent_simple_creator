@@ -5,9 +5,11 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from agent_builder.core.database import get_db
 from agent_builder.myauth_integration.auth import get_current_user
+from agent_builder.db.models import Experiment
 from agent_builder.schemas.pydantic import (
     ExperimentCreate,
     ExperimentResponse,
@@ -19,6 +21,7 @@ from agent_builder.schemas.pydantic import (
     ExperimentExperienceCreate,
     ExperimentExperienceResponse,
 )
+from agent_builder.schemas.execution import ExecutionResult
 from agent_builder.services.experiment_service import (
     ExperimentService,
     ExperimentTemplateService,
@@ -120,31 +123,76 @@ async def run_experiment(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user),
 ):
-    """Run an experiment."""
-    service = ExperimentService(db)
-    experiment = await service.get(experiment_id, user_id)
+    """运行实验（执行完整的 Sense-Plan-Act-Reflect 循环）"""
+    from agent_builder.services.experiment_engine import ExperimentEngine
+    from agent_builder.services.experience_service import ExperienceService
+    from agent_builder.services.skill_service import SkillService
+    from agent_builder.services.mcp_client_manager import MCPClientManager
+
+    # 获取实验
+    result = await db.execute(
+        select(Experiment).where(
+            Experiment.id == experiment_id,
+            Experiment.user_id == user_id
+        )
+    )
+    experiment = result.scalar_one_or_none()
 
     if not experiment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Experiment not found",
-        )
+        raise HTTPException(status_code=404, detail="Experiment not found")
 
-    # Update input data if provided
+    if experiment.status == "running":
+        raise HTTPException(status_code=400, detail="Experiment is already running")
+
+    # 更新输入数据（如果提供）
     if run_request and run_request.input_data:
         experiment.input_data = run_request.input_data
         await db.flush()
 
-    # Mark as running
-    experiment.status = "running"
-    await db.flush()
+    # 初始化服务
+    experience_service = ExperienceService(db)
+    mcp_manager = MCPClientManager()
+    skill_discovery = SkillDiscoveryService(db, mcp_manager)
+
+    # 创建执行引擎（传入 mcp_manager 用于技能管理）
+    engine = ExperimentEngine(db, experience_service, skill_discovery, mcp_manager)
+
+    # 运行实验
+    execution_result = await engine.run_experiment(experiment_id, user_id)
+
+    # 刷新实验数据
     await db.refresh(experiment)
 
-    # TODO: Implement actual experiment execution
-    # For now, return the experiment with running status
-    # The actual execution would be handled by the experiment engine
-
     return experiment
+
+
+@router.get("/{experiment_id}/execution", response_model=ExecutionResult)
+async def get_execution_result(
+    experiment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """获取实验执行结果"""
+    result = await db.execute(
+        select(Experiment).where(
+            Experiment.id == experiment_id,
+            Experiment.user_id == user_id
+        )
+    )
+    experiment = result.scalar_one_or_none()
+
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+
+    return ExecutionResult(
+        success=experiment.status == "success",
+        status=experiment.status,
+        output=experiment.output_data.get("result", {}).get("content") if experiment.output_data else None,
+        error_message=experiment.error_message,
+        duration_ms=0,  # 可以从 output_data 中计算
+        steps_executed=len(experiment.output_data.get("steps", [])) if experiment.output_data else 0,
+        experience_id=experiment.output_data.get("experience_id") if experiment.output_data else None
+    )
 
 
 # ==================== Template Routes ====================

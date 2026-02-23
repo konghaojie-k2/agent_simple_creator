@@ -14,6 +14,10 @@ from agent_builder.myauth_integration.auth import get_current_user
 
 # Import routes after app is created to avoid circular imports
 from agent_builder.api.routes import agents, chat, providers, experiments
+from agent_builder.api.routes.experience_system import router as experience_router
+from agent_builder.api.routes.experience_system import agents_router as experience_agents_router
+from agent_builder.api.routes.mcp_config import router as mcp_router
+from agent_builder.api.routes.agent_skills import router as agent_skills_router
 
 
 # Global auth framework instance
@@ -84,6 +88,10 @@ app.include_router(chat.router)
 app.include_router(experiments.router)
 app.include_router(experiments.templates_router)
 app.include_router(experiments.experiences_router)
+app.include_router(experience_router)
+app.include_router(experience_agents_router)
+app.include_router(mcp_router)
+app.include_router(agent_skills_router)
 
 
 @app.get("/")
