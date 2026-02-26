@@ -26,10 +26,15 @@ async def create_agent(
     service = AgentService(db)
     agent = await service.create_agent(user_id, agent_data)
 
-    # 初始化Agent目录结构
+    # 初始化Agent目录结构（无工作空间）
     from agent_builder.services.agent_initializer import get_agent_initializer
     initializer = get_agent_initializer()
-    dirs = initializer.initialize_agent_directories(user_id, agent.id)
+    dirs = initializer.initialize_agent_directories(
+        user_id=user_id,
+        agent_id=agent.id,
+        name=agent.name,
+        description=agent.description or ""
+    )
 
     # 自动加载全量共享技能到Agent的skills目录
     copied_skills = initializer.copy_shared_skills_to_agent(
@@ -125,7 +130,7 @@ async def get_agent_detail(
             detail="Agent not found",
         )
 
-    # 2. Get directory structure
+    # 2. Get directory structure（新架构：Agent无工作空间）
     from agent_builder.services.agent_initializer import get_agent_initializer
     initializer = get_agent_initializer()
     dirs = initializer.get_agent_directories(user_id, agent_id)
@@ -162,7 +167,7 @@ async def get_agent_detail(
                 source=source
             ))
 
-    # 5. Build response
+    # 5. Build response（新架构：Agent无工作空间，工作空间在实验中）
     return AgentDetailResponse(
         id=agent.id,
         name=agent.name,
@@ -178,6 +183,6 @@ async def get_agent_detail(
             agent_dir=dirs["agent_dir"],
             skills_dir=dirs["skills_dir"],
             experiences_dir=dirs["experiences_dir"],
-            workspace_dir=dirs["workspace_dir"]
+            workspace_dir=None  # Agent无独立工作空间
         )
     )

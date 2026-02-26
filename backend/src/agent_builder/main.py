@@ -88,6 +88,7 @@ app.include_router(chat.router)
 app.include_router(experiments.router)
 app.include_router(experiments.templates_router)
 app.include_router(experiments.experiences_router)
+app.include_router(experiments.collaboration_router)  # 多Agent协作实验路由
 app.include_router(experience_router)
 app.include_router(experience_agents_router)
 app.include_router(mcp_router)

@@ -20,6 +20,8 @@ from agent_builder.schemas.pydantic import (
     ExperimentTemplateUpdate,
     ExperimentExperienceCreate,
     ExperimentExperienceResponse,
+    ExperimentCreateCollaboration,
+    ExperimentParticipantResponse,
 )
 from agent_builder.schemas.execution import ExecutionResult
 from agent_builder.services.experiment_service import (
@@ -372,3 +374,170 @@ async def list_user_experiences(
     )
 
     return experiences
+
+
+# ==================== Collaboration Experiment Routes ====================
+
+collaboration_router = APIRouter(prefix="/api/collaboration", tags=["collaboration"])
+
+
+@collaboration_router.post("/experiments", response_model=ExperimentResponse, status_code=status.HTTP_201_CREATED)
+async def create_collaboration_experiment(
+    experiment_data: ExperimentCreateCollaboration,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """Create a new multi-agent collaboration experiment."""
+    from agent_builder.db.models import Experiment, ExperimentParticipant
+    from agent_builder.schemas.pydantic import ExperimentCreate
+    import uuid
+
+    # 创建实验（使用第一个参与者作为 primary agent）
+    primary_agent_id = experiment_data.participants[0].agent_id if experiment_data.participants else ""
+
+    experiment = Experiment(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        name=experiment_data.name,
+        description=experiment_data.description,
+        experiment_type=experiment_data.experiment_type,
+        template_id=experiment_data.template_id,
+        agent_id=primary_agent_id,
+        input_data=experiment_data.input_data,
+        collaboration_type=experiment_data.collaboration_type,
+        workflow_config=experiment_data.workflow_config,
+        status="pending"
+    )
+
+    db.add(experiment)
+    await db.flush()
+
+    # 创建参与者
+    for participant_data in experiment_data.participants:
+        participant = ExperimentParticipant(
+            id=str(uuid.uuid4()),
+            experiment_id=experiment.id,
+            user_id=user_id,
+            agent_id=participant_data.agent_id,
+            role=participant_data.role,
+            join_order=participant_data.join_order,
+            config=participant_data.config,
+            status="pending"
+        )
+        db.add(participant)
+
+    await db.commit()
+    await db.refresh(experiment)
+
+    return experiment
+
+
+@collaboration_router.post("/experiments/{experiment_id}/run", response_model=ExperimentResponse)
+async def run_collaboration_experiment(
+    experiment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """运行多Agent协作实验"""
+    from agent_builder.services.experiment_engine import MultiAgentExperimentEngine
+    from agent_builder.services.experience_service import ExperienceService
+    from agent_builder.services.skill_service import SkillService
+    from agent_builder.services.mcp_client_manager import MCPClientManager
+    from agent_builder.db.models import Experiment
+
+    # 获取实验
+    result = await db.execute(
+        select(Experiment).where(
+            Experiment.id == experiment_id,
+            Experiment.user_id == user_id
+        )
+    )
+    experiment = result.scalar_one_or_none()
+
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+
+    if experiment.status == "running":
+        raise HTTPException(status_code=400, detail="Experiment is already running")
+
+    if not experiment.collaboration_type:
+        raise HTTPException(status_code=400, detail="Not a collaboration experiment")
+
+    # 初始化服务
+    experience_service = ExperienceService(db)
+    mcp_manager = MCPClientManager()
+    skill_discovery = SkillService(db, mcp_manager)
+
+    # 创建多Agent执行引擎
+    engine = MultiAgentExperimentEngine(db, experience_service, skill_discovery, mcp_manager)
+
+    # 运行协作实验
+    execution_result = await engine.run_collaboration_experiment(experiment_id, user_id)
+
+    # 刷新实验数据
+    await db.refresh(experiment)
+
+    return experiment
+
+
+@collaboration_router.get("/experiments/{experiment_id}/participants", response_model=List[ExperimentParticipantResponse])
+async def get_experiment_participants(
+    experiment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """Get participants of a collaboration experiment."""
+    from agent_builder.db.models import Experiment, ExperimentParticipant
+
+    # 验证实验权限
+    exp_result = await db.execute(
+        select(Experiment).where(
+            Experiment.id == experiment_id,
+            Experiment.user_id == user_id
+        )
+    )
+    experiment = exp_result.scalar_one_or_none()
+
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+
+    # 获取参与者
+    result = await db.execute(
+        select(ExperimentParticipant).where(
+            ExperimentParticipant.experiment_id == experiment_id,
+            ExperimentParticipant.user_id == user_id
+        ).order_by(ExperimentParticipant.join_order)
+    )
+
+    participants = result.scalars().all()
+    return participants
+
+
+@collaboration_router.get("/experiments/{experiment_id}/messages")
+async def get_collaboration_messages(
+    experiment_id: str,
+    agent_id: Optional[str] = Query(None, description="Filter by agent ID"),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """获取协作实验的 Agent 间通信消息"""
+    from agent_builder.db.models import Experiment
+    from agent_builder.services.experiment_workspace import get_experiment_workspace
+
+    # 验证实验权限
+    exp_result = await db.execute(
+        select(Experiment).where(
+            Experiment.id == experiment_id,
+            Experiment.user_id == user_id
+        )
+    )
+    experiment = exp_result.scalar_one_or_none()
+
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+
+    # 获取消息
+    workspace = get_experiment_workspace()
+    messages = workspace.get_agent_messages(user_id, experiment_id, agent_id)
+
+    return messages

@@ -100,7 +100,7 @@ class AgentDirectoryInfo(BaseModel):
     agent_dir: str = Field(..., description="Agent root directory")
     skills_dir: str = Field(..., description="Agent skills directory")
     experiences_dir: str = Field(..., description="Agent experiences directory")
-    workspace_dir: str = Field(..., description="Agent workspace directory")
+    workspace_dir: Optional[str] = Field(None, description="Agent workspace directory (无独立工作空间，工作空间在实验中)")
 
 
 class AgentDetailResponse(BaseModel):
@@ -171,7 +171,9 @@ class ExperimentBase(BaseModel):
 
 class ExperimentCreate(ExperimentBase):
     """Schema for creating an experiment."""
-    agent_id: str = Field(..., description="Agent ID to run experiment with")
+    agent_id: str = Field(..., description="Agent ID to run experiment with (primary agent for collaboration)")
+    collaboration_type: Optional[str] = Field(None, description="Collaboration type: sequential, parallel, debate")
+    workflow_config: Dict[str, Any] = Field(default_factory=dict, description="Workflow configuration")
 
 
 class ExperimentUpdate(BaseModel):
@@ -185,6 +187,52 @@ class ExperimentUpdate(BaseModel):
     metrics: Optional[Dict[str, Any]] = None
 
 
+class ExperimentRunRequest(BaseModel):
+    """Schema for running an experiment."""
+    input_data: Optional[Dict[str, Any]] = Field(None, description="Optional override input data")
+
+
+# Collaboration Schemas (must be defined before ExperimentResponse)
+class ExperimentParticipantBase(BaseModel):
+    """Base experiment participant schema."""
+    agent_id: str = Field(..., description="Agent ID")
+    role: str = Field("worker", description="Participant role: leader, worker, reviewer, observer")
+    join_order: int = Field(0, description="Execution order (for sequential mode)")
+    config: Dict[str, Any] = Field(default_factory=dict, description="Additional config")
+
+
+class ExperimentParticipantCreate(ExperimentParticipantBase):
+    """Schema for creating a participant."""
+    pass
+
+
+class ExperimentParticipantResponse(ExperimentParticipantBase):
+    """Schema for participant response."""
+    id: str
+    experiment_id: str
+    user_id: str
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CollaborationConfig(BaseModel):
+    """Collaboration experiment configuration."""
+    collaboration_type: str = Field(..., description="Collaboration type: sequential, parallel, debate")
+    participants: List[ExperimentParticipantCreate] = Field(..., description="List of participants")
+    workflow_config: Dict[str, Any] = Field(default_factory=dict, description="Workflow configuration")
+    shared_materials: List[Dict[str, Any]] = Field(default_factory=list, description="Shared materials")
+
+
+class ExperimentCreateCollaboration(ExperimentBase):
+    """Schema for creating a collaboration experiment."""
+    participants: List[ExperimentParticipantCreate] = Field(..., description="List of participants")
+    collaboration_type: str = Field("sequential", description="Collaboration type")
+    workflow_config: Dict[str, Any] = Field(default_factory=dict, description="Workflow config")
+
+
 class ExperimentResponse(ExperimentBase):
     """Schema for experiment response."""
     id: str
@@ -194,16 +242,14 @@ class ExperimentResponse(ExperimentBase):
     status: str
     error_message: Optional[str]
     metrics: Dict[str, Any]
+    collaboration_type: Optional[str] = None
+    workflow_config: Dict[str, Any] = Field(default_factory=dict)
+    participants: List[ExperimentParticipantResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: Optional[datetime]
 
     class Config:
         from_attributes = True
-
-
-class ExperimentRunRequest(BaseModel):
-    """Schema for running an experiment."""
-    input_data: Optional[Dict[str, Any]] = Field(None, description="Optional override input data")
 
 
 # Experiment Template Schemas

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { experiencesApi } from '@/lib/api'
-import { ExperimentExperience } from '@/types'
+import { type ExperimentExperience } from '@/types'
 
 export default function ExperiencesPage() {
   const [experiences, setExperiences] = useState<ExperimentExperience[]>([])
@@ -55,21 +55,29 @@ export default function ExperiencesPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
       <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-purple-100">
         <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/experiments"
-              className="p-2 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Experience Library
-              </h1>
-              <p className="text-sm text-gray-500">Lessons learned from experiments</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link
+                href="/experiments"
+                className="p-2 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  Experience Library
+                </h1>
+                <p className="text-sm text-gray-500">Lessons learned from experiments</p>
+              </div>
             </div>
+            <Link
+              href="/experiences/user"
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-colors text-sm cursor-pointer"
+            >
+              Cross-Agent Experiences
+            </Link>
           </div>
         </div>
       </header>

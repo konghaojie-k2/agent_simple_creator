@@ -64,8 +64,51 @@ export interface ChatRequest {
 }
 
 // Experiment Types
-export type ExperimentType = 'skill_creation' | 'document' | 'document_generation' | 'problem_solving' | 'data_analysis' | 'custom';
+export type ExperimentType = 'skill_creation' | 'document' | 'document_generation' | 'problem_solving' | 'data_analysis' | 'collaboration' | 'custom';
 export type ExperimentStatus = 'pending' | 'running' | 'success' | 'failed';
+
+export type CollaborationType = 'sequential' | 'parallel' | 'debate';
+export type ParticipantRole = 'leader' | 'worker' | 'reviewer' | 'observer';
+export type ParticipantStatus = 'pending' | 'active' | 'completed' | 'failed';
+
+export interface ExperimentParticipant {
+  id: string;
+  experiment_id: string;
+  user_id: string;
+  agent_id: string;
+  role: ParticipantRole;
+  join_order: number;
+  status: ParticipantStatus;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CollaborationConfig {
+  collaboration_type: CollaborationType;
+  participants: ExperimentParticipantCreate[];
+  workflow_config: Record<string, unknown>;
+  shared_materials: Record<string, unknown>[];
+}
+
+export interface ExperimentParticipantCreate {
+  agent_id: string;
+  role: ParticipantRole;
+  join_order: number;
+  config?: Record<string, unknown>;
+}
+
+export interface AgentMessage {
+  timestamp: string;
+  from: string;
+  to: string;
+  message: {
+    step?: string;
+    output?: Record<string, unknown>;
+    round?: number;
+    action?: string;
+  };
+}
 
 export interface Experiment {
   id: string;
@@ -80,6 +123,9 @@ export interface Experiment {
   status: ExperimentStatus;
   error_message?: string;
   metrics: Record<string, unknown>;
+  collaboration_type?: CollaborationType;
+  workflow_config: Record<string, unknown>;
+  participants: ExperimentParticipant[];
   created_at: string;
   updated_at?: string;
 }
@@ -91,6 +137,19 @@ export interface CreateExperimentRequest {
   experiment_type: ExperimentType;
   template_id?: string;
   input_data?: Record<string, unknown>;
+  collaboration_type?: CollaborationType;
+  workflow_config?: Record<string, unknown>;
+}
+
+export interface CreateCollaborationExperimentRequest {
+  name: string;
+  description?: string;
+  experiment_type: ExperimentType;
+  template_id?: string;
+  input_data?: Record<string, unknown>;
+  collaboration_type: CollaborationType;
+  participants: ExperimentParticipantCreate[];
+  workflow_config?: Record<string, unknown>;
 }
 
 export interface UpdateExperimentRequest {
@@ -163,7 +222,7 @@ export interface AgentDirectoryInfo {
   agent_dir: string;
   skills_dir: string;
   experiences_dir: string;
-  workspace_dir: string;
+  workspace_dir?: string;  // Agent无独立工作空间，工作空间在实验中
 }
 
 export interface AgentDetail extends Agent {

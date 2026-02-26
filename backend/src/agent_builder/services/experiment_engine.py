@@ -13,7 +13,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from agent_builder.db.models import Experiment, Agent, Experience
+from agent_builder.db.models import Experiment, Agent, Experience, ExperimentTemplate
 from agent_builder.schemas.execution import (
     ExecutionStatus, ExecutionStep, ExecutionContext,
     ExecutionResult, PlanStep
@@ -203,8 +203,43 @@ class ExperimentEngine:
         """
         决策阶段：制定执行计划
 
-        简化版：基于任务类型生成计划
+        优先级：
+        1. 使用模板的 execution_plan（如果存在）
+        2. 回退到内置计划（向后兼容）
+
         后续可以接入 LLM 进行智能规划
+        """
+        task_type = experiment.experiment_type
+        task_description = experiment.input_data.get("task", "")
+
+        # 1. 优先使用模板的 execution_plan
+        if experiment.template_id:
+            template = await self._load_template(experiment.template_id)
+            if template and "execution_plan" in template.template_config:
+                return template.template_config["execution_plan"]
+
+        # 2. 回退到内置逻辑（向后兼容）
+        return await self._builtin_plan_phase(experiment, agent, context)
+
+    async def _load_template(self, template_id: str) -> Optional[ExperimentTemplate]:
+        """加载模板"""
+        from sqlalchemy import select
+
+        result = await self.db.execute(
+            select(ExperimentTemplate).where(ExperimentTemplate.id == template_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def _builtin_plan_phase(
+        self,
+        experiment: Experiment,
+        agent: Agent,
+        context: ExecutionContext
+    ) -> Dict[str, Any]:
+        """
+        内置计划生成逻辑（向后兼容）
+
+        简化版：基于任务类型生成计划
         """
         task_type = experiment.experiment_type
         task_description = experiment.input_data.get("task", "")
@@ -669,3 +704,331 @@ class ExperimentEngine:
         """更新实验状态"""
         experiment.status = status.value
         await self.db.commit()
+
+
+class MultiAgentExperimentEngine(ExperimentEngine):
+    """
+    多Agent协作实验执行引擎
+
+    支持多种协作模式：
+    - sequential: 顺序执行（按 join_order 顺序）
+    - parallel: 并行执行（所有 Agent 同时工作）
+    - debate: 辩论模式（Agent 互相讨论后达成共识）
+    """
+
+    async def run_collaboration_experiment(
+        self,
+        experiment_id: str,
+        user_id: str
+    ) -> ExecutionResult:
+        """
+        运行多Agent协作实验
+        """
+        start_time = time.time()
+
+        # 1. 获取实验和参与者
+        experiment = await self._get_experiment(experiment_id, user_id)
+        if not experiment:
+            return ExecutionResult(
+                success=False,
+                status=ExecutionStatus.FAILED,
+                error_message="Experiment not found or access denied",
+                duration_ms=0,
+                steps_executed=0
+            )
+
+        participants = await self._get_participants(experiment_id, user_id)
+        if not participants:
+            return ExecutionResult(
+                success=False,
+                status=ExecutionStatus.FAILED,
+                error_message="No participants found for collaboration experiment",
+                duration_ms=0,
+                steps_executed=0
+            )
+
+        collaboration_type = experiment.collaboration_type or "sequential"
+
+        # 更新实验状态
+        experiment.status = ExecutionStatus.RUNNING.value
+        await self.db.commit()
+
+        try:
+            # 2. 根据协作类型执行
+            if collaboration_type == "sequential":
+                result = await self._run_sequential(experiment, participants, user_id)
+            elif collaboration_type == "parallel":
+                result = await self._run_parallel(experiment, participants, user_id)
+            elif collaboration_type == "debate":
+                result = await self._run_debate(experiment, participants, user_id)
+            else:
+                result = ExecutionResult(
+                    success=False,
+                    status=ExecutionStatus.FAILED,
+                    error_message=f"Unknown collaboration type: {collaboration_type}",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    steps_executed=0
+                )
+
+            # 3. 更新实验状态
+            final_status = ExecutionStatus.SUCCESS if result.success else ExecutionStatus.FAILED
+            experiment.status = final_status.value
+            experiment.output_data = {
+                "result": result.output,
+                "collaboration_type": collaboration_type,
+                "participants_count": len(participants)
+            }
+            await self.db.commit()
+
+            return result
+
+        except Exception as e:
+            experiment.status = ExecutionStatus.FAILED.value
+            experiment.error_message = str(e)
+            await self.db.commit()
+
+            return ExecutionResult(
+                success=False,
+                status=ExecutionStatus.FAILED,
+                error_message=str(e),
+                duration_ms=int((time.time() - start_time) * 1000),
+                steps_executed=0
+            )
+
+    async def _get_participants(
+        self,
+        experiment_id: str,
+        user_id: str
+    ) -> List[Dict[str, Any]]:
+        """获取实验参与者列表"""
+        from sqlalchemy import select
+        from agent_builder.db.models import ExperimentParticipant
+
+        result = await self.db.execute(
+            select(ExperimentParticipant).where(
+                ExperimentParticipant.experiment_id == experiment_id,
+                ExperimentParticipant.user_id == user_id
+            ).order_by(ExperimentParticipant.join_order)
+        )
+
+        participants = result.scalars().all()
+
+        return [
+            {
+                "id": p.id,
+                "agent_id": p.agent_id,
+                "role": p.role,
+                "join_order": p.join_order,
+                "status": p.status,
+                "config": p.config or {}
+            }
+            for p in participants
+        ]
+
+    async def _run_sequential(
+        self,
+        experiment: Experiment,
+        participants: List[Dict[str, Any]],
+        user_id: str
+    ) -> ExecutionResult:
+        """
+        顺序执行模式
+
+        Agent 按 join_order 顺序依次执行，每个 Agent 的输出传递给下一个
+        """
+        start_time = time.time()
+        all_steps = []
+        shared_context = experiment.input_data.copy()
+
+        for participant in participants:
+            agent = await self._get_agent(participant["agent_id"], user_id)
+            if not agent:
+                continue
+
+            # 更新实验输入数据为共享上下文
+            original_input_data = experiment.input_data.copy()
+            experiment.input_data = shared_context.copy()
+            await self.db.flush()
+
+            # 创建执行上下文
+            context = await self._sense_phase(experiment, agent, user_id)
+            plan = await self._plan_phase(experiment, agent, context)
+            context.plan = plan
+
+            success = await self._act_phase(experiment, agent, context, user_id)
+
+            # 收集输出并更新共享上下文
+            if context.steps:
+                all_steps.extend(context.steps)
+                last_output = context.steps[-1].output_data.get("result", {})
+                if isinstance(last_output, dict):
+                    shared_context.update(last_output)
+
+            # 记录消息
+            await self._save_agent_message(
+                experiment, user_id,
+                participant["agent_id"], "next",
+                {"step": "sequential_output", "output": context.steps[-1].output_data if context.steps else {}}
+            )
+
+            # 恢复原始输入数据
+            experiment.input_data = original_input_data
+            await self.db.flush()
+
+        return ExecutionResult(
+            success=True,
+            status=ExecutionStatus.SUCCESS,
+            output=f"Sequential collaboration completed with {len(participants)} agents",
+            duration_ms=int((time.time() - start_time) * 1000),
+            steps_executed=len(all_steps)
+        )
+
+    async def _run_parallel(
+        self,
+        experiment: Experiment,
+        participants: List[Dict[str, Any]],
+        user_id: str
+    ) -> ExecutionResult:
+        """
+        并行执行模式
+
+        所有 Agent 同时执行，最后汇总结果
+        """
+        import asyncio
+
+        start_time = time.time()
+        all_steps = []
+
+        async def run_single_agent(participant: Dict[str, Any]):
+            agent = await self._get_agent(participant["agent_id"], user_id)
+            if not agent:
+                return None
+
+            context = await self._sense_phase(experiment, agent, user_id)
+            plan = await self._plan_phase(experiment, agent, context)
+            context.plan = plan
+
+            success = await self._act_phase(experiment, agent, context, user_id)
+
+            return {
+                "agent_id": participant["agent_id"],
+                "role": participant["role"],
+                "steps": context.steps,
+                "success": success
+            }
+
+        # 并行执行所有 Agent
+        results = await asyncio.gather(*[
+            run_single_agent(p) for p in participants
+        ])
+
+        # 汇总结果
+        for result in results:
+            if result and result["steps"]:
+                all_steps.extend(result["steps"])
+
+        return ExecutionResult(
+            success=True,
+            status=ExecutionStatus.SUCCESS,
+            output=f"Parallel collaboration completed with {len(participants)} agents",
+            duration_ms=int((time.time() - start_time) * 1000),
+            steps_executed=len(all_steps)
+        )
+
+    async def _run_debate(
+        self,
+        experiment: Experiment,
+        participants: List[Dict[str, Any]],
+        user_id: str
+    ) -> ExecutionResult:
+        """
+        辩论模式
+
+        Agent 轮流发表观点，进行多轮讨论后达成共识
+        """
+        start_time = time.time()
+        all_steps = []
+
+        # 获取 leader
+        leader = next((p for p in participants if p["role"] == "leader"), None)
+        if not leader:
+            leader = participants[0]  # 默认第一个为 leader
+
+        max_rounds = experiment.workflow_config.get("max_rounds", 3) if experiment.workflow_config else 3
+
+        for round_num in range(max_rounds):
+            for participant in participants:
+                agent = await self._get_agent(participant["agent_id"], user_id)
+                if not agent:
+                    continue
+
+                # 记录本轮发言
+                await self._save_agent_message(
+                    experiment, user_id,
+                    participant["agent_id"], "all",
+                    {"round": round_num + 1, "action": "present_view"}
+                )
+
+                # 执行 Agent 思考
+                context = await self._sense_phase(experiment, agent, user_id)
+                plan = await self._plan_phase(experiment, agent, context)
+                context.plan = plan
+
+                await self._act_phase(experiment, agent, context, user_id)
+
+                if context.steps:
+                    all_steps.extend(context.steps)
+
+        # Leader 总结
+        leader_agent = await self._get_agent(leader["agent_id"], user_id)
+        if leader_agent:
+            # 保存原始输入数据
+            original_input_data = experiment.input_data.copy()
+
+            # 更新实验任务为总结任务
+            experiment.input_data = {
+                **experiment.input_data,
+                "task": "总结所有 Agent 的讨论结果"
+            }
+            await self.db.flush()
+
+            context = await self._sense_phase(experiment, leader_agent, user_id)
+            plan = await self._plan_phase(experiment, leader_agent, context)
+            context.plan = plan
+
+            await self._act_phase(experiment, leader_agent, context, user_id)
+
+            if context.steps:
+                all_steps.extend(context.steps)
+
+            # 恢复原始输入数据
+            experiment.input_data = original_input_data
+            await self.db.flush()
+
+        return ExecutionResult(
+            success=True,
+            status=ExecutionStatus.SUCCESS,
+            output=f"Debate collaboration completed with {len(participants)} agents in {max_rounds} rounds",
+            duration_ms=int((time.time() - start_time) * 1000),
+            steps_executed=len(all_steps)
+        )
+
+    async def _save_agent_message(
+        self,
+        experiment: Experiment,
+        user_id: str,
+        from_agent: str,
+        to_agent: str,
+        message: Dict[str, Any]
+    ):
+        """保存 Agent 间通信消息"""
+        from agent_builder.services.experiment_workspace import get_experiment_workspace
+
+        workspace = get_experiment_workspace()
+        workspace.save_agent_message(
+            user_id=user_id,
+            experiment_id=experiment.id,
+            from_agent=from_agent,
+            to_agent=to_agent,
+            message=message
+        )

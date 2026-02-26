@@ -207,6 +207,12 @@ export default function AgentsPage() {
                   </div>
                   <div className="mt-4 flex gap-2">
                     <Link
+                      href={`/agents/${agent.id}`}
+                      className="flex-1 text-center bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                      Details
+                    </Link>
+                    <Link
                       href={`/chat/${agent.id}`}
                       className="flex-1 text-center bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 transition-colors"
                     >

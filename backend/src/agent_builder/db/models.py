@@ -21,8 +21,10 @@ class ExperimentType(PyEnum):
     """Experiment type enumeration."""
     SKILL_CREATION = "skill_creation"
     DOCUMENT = "document"
+    DOCUMENT_GENERATION = "document_generation"  # 结构化报告生成
     PROBLEM_SOLVING = "problem_solving"
     DATA_ANALYSIS = "data_analysis"
+    COLLABORATION = "collaboration"  # 多Agent协作实验
     CUSTOM = "custom"
 
 
@@ -204,7 +206,7 @@ class Experiment(Base):
     __tablename__ = "experiments"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    agent_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    agent_id: Mapped[str] = mapped_column(String(36), nullable=False)  # 主Agent（兼容单Agent模式）
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -218,6 +220,10 @@ class Experiment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)
 
+    # 协作实验配置
+    collaboration_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # sequential, parallel, debate
+    workflow_config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
     # Relationships - using primaryjoin since no FK constraint exists
     agent: Mapped["Agent"] = relationship(
         "Agent",
@@ -225,6 +231,11 @@ class Experiment(Base):
         primaryjoin="Experiment.agent_id == Agent.id",
         foreign_keys=[agent_id],
         viewonly=True,
+    )
+    participants: Mapped[list["ExperimentParticipant"]] = relationship(
+        "ExperimentParticipant",
+        back_populates="experiment",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self):
@@ -265,6 +276,46 @@ class ExperimentExperience(Base):
 
     def __repr__(self):
         return f"<ExperimentExperience {self.id}>"
+
+
+class ExperimentParticipant(Base):
+    """实验参与者模型 - 支持多Agent协作"""
+
+    __tablename__ = "experiment_participants"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    experiment_id: Mapped[str] = mapped_column(ForeignKey("experiments.id"), nullable=False, index=True)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+
+    # 角色配置
+    role: Mapped[str] = mapped_column(String(50), nullable=False, default="worker")  # leader, worker, reviewer, observer
+    join_order: Mapped[int] = mapped_column(Integer, default=0)  # 加入顺序（用于顺序执行）
+
+    # 状态管理
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, active, completed, failed
+
+    # 协作配置（可选）
+    config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)
+
+    # Relationships
+    experiment: Mapped["Experiment"] = relationship(
+        "Experiment",
+        back_populates="participants",
+        foreign_keys=[experiment_id],
+    )
+    agent: Mapped["Agent"] = relationship(
+        "Agent",
+        primaryjoin="ExperimentParticipant.agent_id == Agent.id",
+        foreign_keys=[agent_id],
+        viewonly=True,
+    )
+
+    def __repr__(self):
+        return f"<ExperimentParticipant {self.agent_id} as {self.role}>"
 
 
 class Experience(Base):

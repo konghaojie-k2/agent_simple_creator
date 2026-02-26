@@ -57,6 +57,44 @@ DOCUMENT_TEMPLATES = [
     },
 ]
 
+# New: 结构化报告生成模板（使用execution_plan配置）
+STRUCTURED_REPORT_TEMPLATES = [
+    {
+        "name": "结构化报告生成",
+        "description": "生成包含摘要、正文、结论的结构化报告",
+        "experiment_type": "document_generation",
+        "template_config": {
+            "execution_plan": {
+                "sense": ["load_relevant_experiences"],
+                "plan": [
+                    {"action": "understand_topic", "params": {"topic": "{{topic}}"}},
+                    {"action": "create_outline", "params": {}},
+                    {"action": "write_summary", "params": {}},
+                    {"action": "write_body", "params": {}},
+                    {"action": "write_conclusion", "params": {}},
+                    {"action": "validate_structure", "params": {}}
+                ],
+                "act": ["execute_with_tools"],
+                "reflect": ["extract_lessons", "save_experience"]
+            },
+            "validators": [
+                {
+                    "type": "report_structure",
+                    "params": {
+                        "required_sections": ["摘要", "结论"],
+                        "min_word_count": 200
+                    }
+                }
+            ],
+            "thresholds": {
+                "min_quality_score": 0.7,
+                "max_duration_ms": 300000
+            }
+        },
+        "is_public": True,
+    },
+]
+
 # Default skill creation templates
 SKILL_TEMPLATES = [
     {
@@ -123,8 +161,13 @@ async def seed_templates():
             print("Templates already exist, skipping seed.")
             return
 
-        # Add all templates
-        all_templates = DOCUMENT_TEMPLATES + SKILL_TEMPLATES + DATA_TEMPLATES
+        # Add all templates（包括新的结构化报告模板）
+        all_templates = (
+            DOCUMENT_TEMPLATES +
+            STRUCTURED_REPORT_TEMPLATES +
+            SKILL_TEMPLATES +
+            DATA_TEMPLATES
+        )
 
         for template_data in all_templates:
             template = ExperimentTemplate(

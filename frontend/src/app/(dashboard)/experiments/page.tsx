@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { experimentsApi, agentsApi } from '@/lib/api'
-import { Experiment, Agent } from '@/types'
+import { type Experiment, type Agent } from '@/types'
 
 const statusColors = {
   pending: 'bg-gray-100 text-gray-800',
@@ -15,8 +15,10 @@ const statusColors = {
 const typeLabels = {
   skill_creation: 'Skill Creation',
   document: 'Document',
+  document_generation: 'Document Generation',
   problem_solving: 'Problem Solving',
   data_analysis: 'Data Analysis',
+  collaboration: 'Multi-Agent Collaboration',
   custom: 'Custom',
 }
 
@@ -99,6 +101,12 @@ export default function ExperimentsPage() {
                 Experiences
               </Link>
               <Link
+                href="/experiments/new-collaboration"
+                className="px-4 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+              >
+                Multi-Agent
+              </Link>
+              <Link
                 href="/experiments/new"
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-colors shadow-md cursor-pointer"
               >
@@ -121,9 +129,11 @@ export default function ExperimentsPage() {
               >
                 <option value="">All Types</option>
                 <option value="document">Document</option>
+                <option value="document_generation">Document Generation</option>
                 <option value="skill_creation">Skill Creation</option>
                 <option value="problem_solving">Problem Solving</option>
                 <option value="data_analysis">Data Analysis</option>
+                <option value="collaboration">Multi-Agent Collaboration</option>
                 <option value="custom">Custom</option>
               </select>
               <select
