@@ -152,7 +152,7 @@ async def run_experiment(
     # 初始化服务
     experience_service = ExperienceService(db)
     mcp_manager = MCPClientManager()
-    skill_discovery = SkillDiscoveryService(db, mcp_manager)
+    skill_discovery = SkillService(db, mcp_manager)
 
     # 创建执行引擎（传入 mcp_manager 用于技能管理）
     engine = ExperimentEngine(db, experience_service, skill_discovery, mcp_manager)
@@ -338,3 +338,37 @@ async def get_experience(
         )
 
     return experience
+
+
+@experiences_router.get("/user/{user_id}", response_model=List[ExperimentExperienceResponse])
+async def list_user_experiences(
+    user_id: str,
+    status: Optional[str] = Query(None, description="Filter by status: verified, draft, deprecated"),
+    limit: Optional[int] = Query(10, description="Maximum number of experiences to return"),
+    db: AsyncSession = Depends(get_db),
+    current_user_id: str = Depends(get_current_user),
+):
+    """
+    获取用户所有Agent的verified经验（跨Agent经验查询）
+
+    支持的查询参数:
+    - status: 过滤经验状态 (verified, draft, deprecated)
+    - limit: 返回结果的最大数量 (默认10)
+    """
+    # 验证权限：只能查询自己的经验
+    if user_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access other users' experiences",
+        )
+
+    from agent_builder.services.experience_service import ExperienceService
+
+    service = ExperienceService(db)
+    experiences = await service.list_user_experiences(
+        user_id=user_id,
+        status=status,
+        limit=limit
+    )
+
+    return experiences

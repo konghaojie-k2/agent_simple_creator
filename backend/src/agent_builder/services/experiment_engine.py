@@ -21,6 +21,9 @@ from agent_builder.schemas.execution import (
 from agent_builder.services.experience_service import ExperienceService
 from agent_builder.services.skill_service import SkillService
 from agent_builder.services.mcp_client_manager import MCPClientManager
+from agent_builder.services.tool_registry import get_tool_registry
+from agent_builder.services.experience_manager import get_experience_manager
+from agent_builder.services.skill_system import AgentSkillSystem
 
 
 class ExperimentEngine:
@@ -72,6 +75,24 @@ class ExperimentEngine:
                 duration_ms=0,
                 steps_executed=0
             )
+
+        # ========== 初始化 Agent 技能系统 ==========
+        # 1. 创建技能系统（加载共享技能 + Agent专属技能 + 经验）
+        skill_system = AgentSkillSystem(
+            user_id=user_id,
+            agent_id=agent.id,
+            shared_skills_dir="./skills",
+            workspaces_dir="./workspaces"
+        )
+
+        # 2. 获取系统提示（包含技能元数据）
+        skill_prompt = skill_system.get_system_prompt()
+
+        # 3. 设置技能系统到工具注册表（用于 get_skill 工具）
+        from agent_builder.services.tool_registry import get_tool_registry
+        tool_registry = get_tool_registry()
+        tool_registry.set_skill_system(skill_system)
+        available_tools = tool_registry.list_tools()
 
         # 更新实验状态为 running
         experiment.status = ExecutionStatus.RUNNING.value
@@ -208,6 +229,17 @@ class ExperimentEngine:
                 {"action": "design_interface", "params": {}},
                 {"action": "implement_logic", "params": {}},
                 {"action": "test_skill", "params": {}}
+            ]
+        elif task_type == "document_generation":
+            # 生成结构化报告：摘要、正文、结论
+            plan["steps"] = [
+                {"action": "understand_topic", "params": {"topic": task_description}},
+                {"action": "create_outline", "params": {}},
+                {"action": "write_summary", "params": {}},
+                {"action": "write_body", "params": {}},
+                {"action": "write_conclusion", "params": {}},
+                {"action": "format_report", "params": {}},
+                {"action": "validate_structure", "params": {}}
             ]
         elif task_type == "document":
             plan["steps"] = [
@@ -359,6 +391,49 @@ class ExperimentEngine:
 
         return True
 
+    def _validate_report_structure(self, report_content: str) -> Dict[str, Any]:
+        """
+        验证报告结构是否完整
+
+        检查是否包含：
+        - 摘要 (Summary)
+        - 结论 (Conclusion)
+        - 正文内容（通常在摘要和结论之间）
+
+        Args:
+            report_content: 报告内容
+
+        Returns:
+            验证结果字典
+        """
+        content_lower = report_content.lower()
+
+        # 检查必需部分
+        has_summary = any(keyword in content_lower for keyword in
+                         ["摘要", "summary", "概述", "overview", "概要"])
+        has_conclusion = any(keyword in content_lower for keyword in
+                           ["结论", "conclusion", "总结", "summary", "总结"])
+
+        # 检查是否有足够的正文内容（在摘要和结论之间的内容）
+        # 简化判断：检查是否有足够的段落或字数
+        word_count = len(report_content.strip())
+        has_body = word_count > 200  # 至少200字符
+
+        valid = has_summary and has_conclusion and has_body
+
+        return {
+            "valid": valid,
+            "has_summary": has_summary,
+            "has_conclusion": has_conclusion,
+            "has_body": has_body,
+            "word_count": word_count,
+            "missing_sections": [] if valid else (
+                (["摘要"] if not has_summary else []) +
+                (["结论"] if not has_conclusion else []) +
+                (["正文"] if not has_body else [])
+            )
+        }
+
     def _needs_skill(self, action: str) -> bool:
         """判断 action 是否需要外部技能"""
         skill_keywords = ["fetch", "web", "parse", "call", "api", "search", "download", "upload"]
@@ -375,24 +450,100 @@ class ExperimentEngine:
         """
         执行单个动作
 
-        简化版：模拟执行
-        后续可以接入 LLM 或实际工具
+        优先使用工具注册表中的实际工具
         """
-        # 模拟执行（实际实现需要接入 LLM 或工具）
-        if action == "search_documents":
-            return {"status": "success", "documents_found": 3}
-        elif action == "analyze_content":
-            return {"status": "success", "analysis": "completed"}
-        elif action == "generate_response":
-            return {"status": "success", "content": "Response generated"}
-        elif action in ["fetch_web", "parse_pdf", "call_api"]:
-            # 这些动作需要外部技能
+        # 获取工具注册表
+        tool_registry = get_tool_registry()
+
+        # 动作到工具的映射
+        action_to_tool = {
+            "search_documents": "search_documents",  # 需要外部技能
+            "analyze_content": "analyze_content",    # 需要外部技能
+            "generate_response": "generate_response",  # 需要 LLM
+            "execute_code": "execute_python",
+            "run_code": "execute_python",
+            "read_file": "read_file",
+            "write_file": "write_file",
+            "delete_file": "delete_file",
+            "list_files": "list_files",
+            "file_exists": "file_exists",
+            "understand_task": None,  # 需要 LLM
+            "understand_topic": None,  # 需要 LLM
+            "execute_task": None,     # 需要 LLM 或工具
+            "validate_result": None,  # 需要 LLM
+            "validate_structure": None,  # 内置验证
+            "analyze_requirement": None,  # 需要 LLM
+            "design_interface": None,     # 需要 LLM
+            "implement_logic": None,      # 需要 LLM
+            "test_skill": None,           # 需要 LLM
+            "analyze_problem": None,      # 需要 LLM
+            "search_solution": None,      # 需要外部技能
+            "execute_solution": None,     # 需要工具
+            "create_outline": None,       # 需要 LLM
+            "write_summary": None,        # 需要 LLM
+            "write_body": None,           # 需要 LLM
+            "write_conclusion": None,     # 需要 LLM
+            "format_report": None,        # 需要 LLM
+        }
+
+        tool_name = action_to_tool.get(action)
+
+        # 特殊处理：validate_structure 使用内置验证
+        if action == "validate_structure":
+            # 收集之前步骤的输出
+            report_content = ""
+            for step in context.steps:
+                if step.status == "success" and step.output_data:
+                    content = step.output_data.get("result", {}).get("content", "")
+                    if content:
+                        report_content += "\n\n" + content
+            validation_result = self._validate_report_structure(report_content)
             return {
-                "status": "capability_missing",
-                "missing_capability": action
+                "status": "success" if validation_result["valid"] else "failed",
+                "validation": validation_result,
+                "content": f"报告结构验证: {'通过' if validation_result['valid'] else '失败'}"
             }
+
+        # 如果有对应的工具，使用工具执行
+        if tool_name and tool_name in tool_registry.list_tools():
+            tool_params = self._build_tool_params(action, params)
+            result = await tool_registry.execute_tool(tool_name, tool_params)
+            return {
+                "status": "success" if result.get("success") else "failed",
+                "tool": tool_name,
+                "result": result
+            }
+
+        # 如果没有对应工具，需要外部技能或 LLM
+        # 返回 capability_missing，触发技能发现流程
+        return {
+            "status": "capability_missing",
+            "missing_capability": action,
+            "suggestion": "This action requires external skill or LLM"
+        }
+
+    def _build_tool_params(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """构建工具参数"""
+        if action in ["execute_code", "run_code"]:
+            return {
+                "code": params.get("code", params.get("script", "")),
+                "timeout": params.get("timeout", 30)
+            }
+        elif action == "read_file":
+            return {"path": params.get("path", "")}
+        elif action == "write_file":
+            return {
+                "path": params.get("path", ""),
+                "content": params.get("content", "")
+            }
+        elif action == "delete_file":
+            return {"path": params.get("path", "")}
+        elif action == "list_files":
+            return {"path": params.get("path", ".")}
+        elif action == "file_exists":
+            return {"path": params.get("path", "")}
         else:
-            return {"status": "success", "action": action}
+            return params
 
     async def _reflect_phase(
         self,
@@ -463,6 +614,21 @@ class ExperimentEngine:
                 user_id=user_id,
                 success=execution_success
             )
+
+        # ========== 保存技能到文件系统（经验沉淀）==========
+        # 如果执行成功且有新发现的技能，保存到 experiences/ 目录
+        if execution_success and context.discovered_skills:
+            exp_manager = get_experience_manager()
+            for skill_info in context.discovered_skills:
+                await exp_manager.create_experience(
+                    user_id=user_id,
+                    agent_id=agent.id,
+                    name=skill_info.get("name", f"skill_{skill_info.get('skill_id', 'unknown')}"),
+                    description=f"Skill discovered during experiment: {skill_info.get('name', 'unknown')}",
+                    skill_content=f"# {skill_info.get('name', 'Skill')}\n\nSource: {skill_info.get('source', 'unknown')}",
+                    task_context=situation,
+                    source="agent_created"
+                )
 
         return experience.id
 

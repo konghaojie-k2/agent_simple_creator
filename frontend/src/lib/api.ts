@@ -77,7 +77,9 @@ export const agentsApi = {
     }),
   
   get: (id: string) => request<import('@/types').Agent>(`/api/agents/${id}`),
-  
+
+  getDetail: (id: string) => request<import('@/types').AgentDetail>(`/api/agents/${id}/detail`),
+
   update: (id: string, data: Partial<import('@/types').CreateAgentRequest>) =>
     request<import('@/types').Agent>(`/api/agents/${id}`, {
       method: 'PUT',
@@ -183,4 +185,10 @@ export const experiencesApi = {
 
   search: (keyword: string) =>
     request<import('@/types').ExperimentExperience[]>(`/api/experiences/search?keyword=${encodeURIComponent(keyword)}`),
+
+  // 跨Agent经验查询 - 获取用户所有Agent的经验
+  listUserExperiences: (userId: string, params?: { status?: 'verified' | 'draft' | 'deprecated'; limit?: number }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return request<import('@/types').UserExperience[]>(`/api/experiences/user/${userId}${query ? `?${query}` : ''}`);
+  },
 };

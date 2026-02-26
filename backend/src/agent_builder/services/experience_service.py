@@ -335,3 +335,36 @@ class ExperienceService:
             .order_by(AgentExperienceAbsorption.absorbed_at.desc())
         )
         return list(result.scalars().all())
+
+    async def list_user_experiences(
+        self,
+        user_id: str,
+        status: Optional[str] = None,
+        limit: int = 10,
+    ) -> List[Experience]:
+        """
+        获取用户所有Agent的verified经验（跨Agent经验查询）
+
+        Args:
+            user_id: 用户ID
+            status: 过滤经验状态 (verified, draft, deprecated)，默认返回verified
+            limit: 返回结果的最大数量
+
+        Returns:
+            经验列表
+        """
+        query = select(Experience).where(Experience.user_id == user_id)
+
+        # 如果没有指定status，默认返回verified经验
+        if status:
+            query = query.where(Experience.status == status)
+        else:
+            query = query.where(Experience.status == "verified")
+
+        query = query.order_by(
+            Experience.last_applied_at.desc().nullslast(),
+            Experience.created_at.desc()
+        ).limit(limit)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())

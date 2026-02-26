@@ -82,6 +82,50 @@ class AgentResponse(AgentBase):
         from_attributes = True
 
 
+class ToolInfo(BaseModel):
+    """Tool information schema."""
+    name: str = Field(..., description="Tool name")
+    description: str = Field(..., description="Tool description")
+
+
+class SkillInfo(BaseModel):
+    """Skill information schema."""
+    name: str = Field(..., description="Skill name")
+    description: str = Field(..., description="Skill description")
+    source: str = Field(..., description="Skill source: shared, agent, experience")
+
+
+class AgentDirectoryInfo(BaseModel):
+    """Agent directory structure schema."""
+    agent_dir: str = Field(..., description="Agent root directory")
+    skills_dir: str = Field(..., description="Agent skills directory")
+    experiences_dir: str = Field(..., description="Agent experiences directory")
+    workspace_dir: str = Field(..., description="Agent workspace directory")
+
+
+class AgentDetailResponse(BaseModel):
+    """Schema for detailed agent information including tools and skills."""
+    # Basic info
+    id: str
+    name: str
+    description: Optional[str]
+    system_prompt: Optional[str]
+    model: str
+    max_steps: int
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+    # Tools and skills
+    tools: List[ToolInfo] = Field(default_factory=list, description="Available tools")
+    skills: List[SkillInfo] = Field(default_factory=list, description="Available skills")
+
+    # Directory structure
+    directories: AgentDirectoryInfo = Field(..., description="Agent directory structure")
+
+    class Config:
+        from_attributes = True
+
+
 # Chat Schemas
 class ChatMessage(BaseModel):
     """Chat message schema."""

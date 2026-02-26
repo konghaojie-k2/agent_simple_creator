@@ -64,7 +64,7 @@ export interface ChatRequest {
 }
 
 // Experiment Types
-export type ExperimentType = 'skill_creation' | 'document' | 'problem_solving' | 'data_analysis' | 'custom';
+export type ExperimentType = 'skill_creation' | 'document' | 'document_generation' | 'problem_solving' | 'data_analysis' | 'custom';
 export type ExperimentStatus = 'pending' | 'running' | 'success' | 'failed';
 
 export interface Experiment {
@@ -145,4 +145,52 @@ export interface CreateExperienceRequest {
   lessons_learned?: string;
   improvements?: string;
   related_experiments?: string[];
+}
+
+// Agent Detail Types
+export interface ToolInfo {
+  name: string;
+  description: string;
+}
+
+export interface SkillInfo {
+  name: string;
+  description: string;
+  source: 'shared' | 'agent' | 'experience';
+}
+
+export interface AgentDirectoryInfo {
+  agent_dir: string;
+  skills_dir: string;
+  experiences_dir: string;
+  workspace_dir: string;
+}
+
+export interface AgentDetail extends Agent {
+  tools: ToolInfo[];
+  skills: SkillInfo[];
+  directories: AgentDirectoryInfo;
+}
+
+// Cross-Agent Experience Types
+export type ExperienceStatus = 'verified' | 'draft' | 'deprecated';
+
+export interface UserExperience {
+  id: string;
+  user_id: string;
+  source_agent_id: string;
+  source_experiment_id?: string;
+  type: string;
+  situation: string;
+  action: string;
+  result: string;
+  lesson: string;
+  solution: string;
+  skills_used: string[];
+  skills_discovered: string[];
+  status: ExperienceStatus;
+  applied_count: number;
+  success_count: number;
+  last_applied_at?: string;
+  created_at: string;
 }

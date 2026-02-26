@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd C:\\\\CODE\\\\agent_simple_creator\\\\backend:*)",
+      "Bash(sleep 3:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(head:*)",
+      "Bash(cd \"C:\\\\CODE\\\\agent_simple_creator\\\\frontend\" && npm run build 2>&1)",
+      "Bash(cd:*)",
+      "Bash(uv run:*)"
+    ]
+  }
+}

