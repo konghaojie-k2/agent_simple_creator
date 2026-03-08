@@ -214,6 +214,69 @@ export default function ExperimentDetailPage() {
             </dl>
           </div>
 
+          {/* Background Information */}
+          {(experiment.requirements || experiment.background || (experiment.doc_ids && experiment.doc_ids.length > 0)) && (
+            <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Background Information</h2>
+              <dl className="space-y-4">
+                {experiment.requirements && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Requirements</dt>
+                    <dd className="text-gray-900 mt-1 whitespace-pre-wrap">{experiment.requirements}</dd>
+                  </div>
+                )}
+                {experiment.background && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Background</dt>
+                    <dd className="text-gray-900 mt-1 whitespace-pre-wrap">{experiment.background}</dd>
+                  </div>
+                )}
+                {experiment.doc_ids && experiment.doc_ids.length > 0 && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Referenced Documents</dt>
+                    <dd className="text-gray-900 mt-1">
+                      <div className="flex flex-wrap gap-2">
+                        {experiment.doc_ids.map(docId => (
+                          <span key={docId} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            {docId}
+                          </span>
+                        ))}
+                      </div>
+                    </dd>
+                  </div>
+                )}
+                {experiment.data_ids && experiment.data_ids.length > 0 && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Referenced Datasets</dt>
+                    <dd className="text-gray-900 mt-1">
+                      <div className="flex flex-wrap gap-2">
+                        {experiment.data_ids.map(dataId => (
+                          <span key={dataId} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {dataId}
+                          </span>
+                        ))}
+                      </div>
+                    </dd>
+                  </div>
+                )}
+                {experiment.skill_ids && experiment.skill_ids.length > 0 && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Required Skills</dt>
+                    <dd className="text-gray-900 mt-1">
+                      <div className="flex flex-wrap gap-2">
+                        {experiment.skill_ids.map(skillId => (
+                          <span key={skillId} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {skillId}
+                          </span>
+                        ))}
+                      </div>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+
           {/* Input Data */}
           {experiment.input_data && Object.keys(experiment.input_data).length > 0 && (
             <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">

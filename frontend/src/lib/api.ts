@@ -69,13 +69,13 @@ export const providersApi = {
 // Agents API
 export const agentsApi = {
   list: () => request<import('@/types').Agent[]>('/api/agents'),
-  
+
   create: (data: import('@/types').CreateAgentRequest) =>
     request<import('@/types').Agent>('/api/agents', {
       method: 'POST',
       body: data,
     }),
-  
+
   get: (id: string) => request<import('@/types').Agent>(`/api/agents/${id}`),
 
   getDetail: (id: string) => request<import('@/types').AgentDetail>(`/api/agents/${id}/detail`),
@@ -85,10 +85,25 @@ export const agentsApi = {
       method: 'PUT',
       body: data,
     }),
-  
+
   delete: (id: string) => request<void>(`/api/agents/${id}`, {
     method: 'DELETE',
   }),
+
+  // 能力相关
+  getCapabilities: (id: string) =>
+    request<import('@/types').AgentCapabilities>(`/api/agents/${id}/capabilities`),
+
+  updateCapabilities: (id: string) =>
+    request<import('@/types').AgentCapabilities>(`/api/agents/${id}/capabilities/update`, {
+      method: 'POST',
+    }),
+
+  previewPrompt: (id: string, taskDescription: string) =>
+    request<import('@/types').PromptPreviewResponse>(`/api/agents/${id}/prompt/preview`, {
+      method: 'POST',
+      body: { task_description: taskDescription },
+    }),
 };
 
 // Chat API
@@ -191,4 +206,93 @@ export const experiencesApi = {
     const query = new URLSearchParams(params as Record<string, string>).toString();
     return request<import('@/types').UserExperience[]>(`/api/experiences/user/${userId}${query ? `?${query}` : ''}`);
   },
+};
+
+// Soul API
+export const soulApi = {
+  get: () => request<import('@/types').UserSoul>('/api/soul'),
+
+  update: (data: import('@/types').SoulUpdateRequest) =>
+    request<import('@/types').UserSoul>('/api/soul', {
+      method: 'POST',
+      body: data,
+    }),
+
+  getTemplate: () =>
+    request<{ soul_content: string; core_truths: string[]; boundaries: string[]; vibe: string }>('/api/soul/template'),
+};
+
+// Documents API
+export const documentsApi = {
+  list: (params?: { doc_type?: string; category?: string; tags?: string }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return request<import('@/types').Document[]>(`/api/documents${query ? `?${query}` : ''}`);
+  },
+
+  get: (id: string) => request<import('@/types').Document>(`/api/documents/${id}`),
+
+  create: (data: import('@/types').CreateDocumentRequest) =>
+    request<import('@/types').Document>('/api/documents', {
+      method: 'POST',
+      body: data,
+    }),
+
+  delete: (id: string) => request<void>(`/api/documents/${id}`, {
+    method: 'DELETE',
+  }),
+
+  search: (keyword: string) =>
+    request<import('@/types').Document[]>(`/api/documents/search?keyword=${encodeURIComponent(keyword)}`),
+};
+
+// Datasets API (Data Market)
+export const datasetsApi = {
+  list: (params?: { dataset_type?: string; category?: string; tags?: string; limit?: number; offset?: number }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return request<import('@/types').Dataset[]>(`/api/market/datasets${query ? `?${query}` : ''}`);
+  },
+
+  get: (id: string) => request<import('@/types').Dataset>(`/api/market/datasets/${id}`),
+
+  create: (data: import('@/types').CreateDatasetRequest) =>
+    request<import('@/types').Dataset>('/api/market/datasets', {
+      method: 'POST',
+      body: data,
+    }),
+
+  update: (id: string, data: Partial<import('@/types').CreateDatasetRequest>) =>
+    request<import('@/types').Dataset>(`/api/market/datasets/${id}`, {
+      method: 'PUT',
+      body: data,
+    }),
+
+  delete: (id: string) => request<void>(`/api/market/datasets/${id}`, {
+    method: 'DELETE',
+  }),
+};
+
+// Skills API (Skill Market)
+export const skillsApi = {
+  list: (params?: { category?: string; tags?: string; limit?: number; offset?: number }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return request<import('@/types').Skill[]>(`/api/market/skills${query ? `?${query}` : ''}`);
+  },
+
+  get: (id: string) => request<import('@/types').Skill>(`/api/market/skills/${id}`),
+
+  create: (data: import('@/types').CreateSkillRequest) =>
+    request<import('@/types').Skill>('/api/market/skills', {
+      method: 'POST',
+      body: data,
+    }),
+
+  update: (id: string, data: Partial<import('@/types').CreateSkillRequest>) =>
+    request<import('@/types').Skill>(`/api/market/skills/${id}`, {
+      method: 'PUT',
+      body: data,
+    }),
+
+  delete: (id: string) => request<void>(`/api/market/skills/${id}`, {
+    method: 'DELETE',
+  }),
 };

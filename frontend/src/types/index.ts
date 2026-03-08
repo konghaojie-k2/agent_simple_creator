@@ -12,12 +12,42 @@ export interface LLMProvider {
   updated_at?: string;
 }
 
+// Agent Types
+export interface AgentPromptConfig {
+  inject_experiences: boolean;
+  max_experiences: number;
+  injection_mode: string;
+}
+
+export interface AgentIdentity {
+  name?: string;
+  creature?: string;
+  vibe?: string;
+  emoji?: string;
+  avatar?: string;
+}
+
+export interface AgentCapabilities {
+  core_capabilities: string[];
+  learned_skills: string[];
+  successful_patterns: string[];
+  problem_domains?: string[];
+  statistics?: {
+    total_experiences: number;
+    success_count: number;
+    failure_count: number;
+  };
+}
+
 export interface Agent {
   id: string;
   user_id: string;
   name: string;
   description?: string;
   system_prompt?: string;
+  identity?: AgentIdentity;
+  capabilities?: AgentCapabilities;
+  prompt_config?: AgentPromptConfig;
   provider_id?: string;
   model: string;
   max_steps: number;
@@ -53,9 +83,42 @@ export interface CreateAgentRequest {
   name: string;
   description?: string;
   system_prompt?: string;
+  identity?: AgentIdentity;
+  capabilities?: AgentCapabilities;
+  prompt_config?: AgentPromptConfig;
   provider_id?: string;
   model: string;
   max_steps?: number;
+}
+
+// User Soul Types
+export interface UserSoul {
+  user_id: string;
+  core_truths?: string[];
+  boundaries?: string[];
+  vibe?: string;
+  soul_content?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SoulUpdateRequest {
+  core_truths?: string[];
+  boundaries?: string[];
+  vibe?: string;
+  soul_content?: string;
+}
+
+export interface PromptPreviewRequest {
+  task_description: string;
+}
+
+export interface PromptPreviewResponse {
+  agent_id: string;
+  task_description: string;
+  dynamic_prompt: string;
+  base_prompt?: string;
+  capabilities?: AgentCapabilities;
 }
 
 export interface ChatRequest {
@@ -118,6 +181,12 @@ export interface Experiment {
   description?: string;
   experiment_type: ExperimentType;
   template_id?: string;
+  // Background Info (Hybrid Mode)
+  requirements?: string;
+  background?: string;
+  doc_ids: string[];
+  data_ids: string[];
+  skill_ids: string[];
   input_data: Record<string, unknown>;
   output_data: Record<string, unknown>;
   status: ExperimentStatus;
@@ -136,6 +205,12 @@ export interface CreateExperimentRequest {
   description?: string;
   experiment_type: ExperimentType;
   template_id?: string;
+  // Background Info (Hybrid Mode)
+  requirements?: string;
+  background?: string;
+  doc_ids?: string[];
+  data_ids?: string[];
+  skill_ids?: string[];
   input_data?: Record<string, unknown>;
   collaboration_type?: CollaborationType;
   workflow_config?: Record<string, unknown>;
@@ -252,4 +327,88 @@ export interface UserExperience {
   success_count: number;
   last_applied_at?: string;
   created_at: string;
+}
+
+// Document Types
+export interface Document {
+  id: string;
+  name: string;
+  description?: string;
+  doc_type: string;
+  content?: string;
+  file_path?: string;
+  tags: string[];
+  category?: string;
+  is_public: boolean;
+  user_id: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateDocumentRequest {
+  name: string;
+  description?: string;
+  doc_type?: string;
+  content?: string;
+  file_path?: string;
+  tags?: string[];
+  category?: string;
+  is_public?: boolean;
+}
+
+// Dataset Types
+export interface Dataset {
+  id: string;
+  name: string;
+  description?: string;
+  dataset_type: string;
+  schema: Record<string, unknown>;
+  file_path?: string;
+  row_count: number;
+  tags: string[];
+  category?: string;
+  is_public: boolean;
+  user_id: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateDatasetRequest {
+  name: string;
+  description?: string;
+  dataset_type?: string;
+  schema?: Record<string, unknown>;
+  file_path?: string;
+  row_count?: number;
+  tags?: string[];
+  category?: string;
+  is_public?: boolean;
+}
+
+// Skill Types
+export interface Skill {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  content?: string;
+  content_type: string;
+  parameters_schema: Record<string, unknown>;
+  tags: string[];
+  usage_count: number;
+  is_public: boolean;
+  user_id: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateSkillRequest {
+  name: string;
+  description?: string;
+  category?: string;
+  content?: string;
+  content_type?: string;
+  parameters_schema?: Record<string, unknown>;
+  tags?: string[];
+  is_public?: boolean;
 }

@@ -18,6 +18,10 @@ from agent_builder.api.routes.experience_system import router as experience_rout
 from agent_builder.api.routes.experience_system import agents_router as experience_agents_router
 from agent_builder.api.routes.mcp_config import router as mcp_router
 from agent_builder.api.routes.agent_skills import router as agent_skills_router
+from agent_builder.api.routes.soul import router as soul_router
+from agent_builder.api.routes.documents import router as documents_router
+from agent_builder.api.routes.datasets import router as datasets_router
+from agent_builder.api.routes.skills import router as skills_router
 
 
 # Global auth framework instance
@@ -93,6 +97,10 @@ app.include_router(experience_router)
 app.include_router(experience_agents_router)
 app.include_router(mcp_router)
 app.include_router(agent_skills_router)
+app.include_router(soul_router)  # User SOUL 管理路由
+app.include_router(documents_router)  # Doc Market 路由
+app.include_router(datasets_router)  # Data Market 路由
+app.include_router(skills_router)  # Skill Market 路由
 
 
 @app.get("/")

@@ -1,4 +1,146 @@
-# 实验场开发 - 进度日志
+# 进度日志 - Agent Simple Creator
+
+## 2026-03-07: Phase 2 - 数据集市场 (Data Market)
+
+### 完成工作 ✅
+
+#### 1. 后端实现
+- [x] 创建 `Dataset` 数据模型 (`db/models.py`)
+  - id, name, description, dataset_type, schema, file_path
+  - row_count, tags, category, is_public
+- [x] 创建 Pydantic schemas (`schemas/pydantic.py`)
+- [x] 创建 `MarketService` 服务 (`services/market_service.py`)
+- [x] 创建 API 路由 (`api/routes/datasets.py`)
+  - POST /api/market/datasets - 创建数据集
+  - GET /api/market/datasets - 列出数据集
+  - GET /api/market/datasets/{id} - 获取详情
+  - PUT /api/market/datasets/{id} - 更新数据集
+  - DELETE /api/market/datasets/{id} - 删除数据集
+- [x] 注册路由到 main.py
+
+#### 2. 前端实现
+- [x] 添加 Dataset 类型定义 (`types/index.ts`)
+- [x] 添加 datasetsApi (`lib/api.ts`)
+- [x] 创建数据集列表页 (`/markets/data/page.tsx`)
+- [x] 创建数据集创建页 (`/markets/data/new/page.tsx`)
+
+#### 3. 验证
+- [x] 后端导入测试通过
+- [x] 前端构建成功
+
+---
+
+## 2026-03-07: Phase 3 - 技能市场 (Skill Market)
+
+### 完成工作 ✅
+
+#### 1. 后端实现
+- [x] 创建 `Skill` 数据模型 (`db/models.py`)
+  - id, name, description, category, content, content_type
+  - parameters_schema, tags, usage_count, is_public
+- [x] 创建 Pydantic schemas
+- [x] 创建 `SkillService` 服务 (`services/skill_market_service.py`)
+- [x] 创建 API 路由 (`api/routes/skills.py`)
+  - POST /api/market/skills - 创建技能
+  - GET /api/market/skills - 列出技能
+  - GET /api/market/skills/{id} - 获取详情
+  - PUT /api/market/skills/{id} - 更新技能
+  - DELETE /api/market/skills/{id} - 删除技能
+- [x] 注册路由到 main.py
+
+#### 2. 前端实现
+- [x] 添加 Skill 类型定义 (`types/index.ts`)
+- [x] 添加 skillsApi (`lib/api.ts`)
+- [x] 创建技能列表页 (`/markets/skills/page.tsx`)
+- [x] 创建技能创建页 (`/markets/skills/new/page.tsx`)
+
+#### 3. 实验集成
+- [x] 实验创建页添加数据集选择器 (data_ids)
+- [x] 实验创建页添加技能选择器 (skill_ids)
+
+#### 4. 验证
+- [x] 后端导入测试通过
+- [x] 前端构建成功
+
+---
+
+## 2026-03-07: Phase 1 - 实验背景信息
+
+### 完成工作 ✅
+
+#### 1. 后端 (已有支持)
+- [x] Experiment 模型支持 requirements, background, doc_ids, data_ids, skill_ids
+- [x] Pydantic schemas 完整支持新字段
+
+#### 2. 前端类型定义
+- [x] 更新 `types/index.ts` - Experiment 接口添加新字段
+- [x] 更新 `types/index.ts` - CreateExperimentRequest 添加新字段
+- [x] 添加 Document 类型定义
+
+#### 3. API 客户端
+- [x] 更新 `api.ts` - 添加 documentsApi
+
+#### 4. 创建实验页面
+- [x] 更新 `experiments/new/page.tsx` - 添加背景信息表单
+  - requirements 输入框
+  - background 输入框
+  - doc_ids 文档多选器
+
+#### 5. 实验详情页
+- [x] 更新 `experiments/[id]/page.tsx` - 显示背景信息
+
+### 验证
+- [x] 前端构建成功 (npm run build)
+
+---
+
+## 2026-02-26 下午: 记忆系统架构优化
+
+### 完成工作 ✅
+
+#### 1. 数据库模型扩展
+- [x] 新增 `UserSoul` 表（用户级 SOUL）
+- [x] `agents` 表新增 `identity` 字段
+- [x] `agents` 表新增 `capabilities` 字段
+- [x] `agents` 表新增 `prompt_config` 字段
+
+#### 2. 后端服务实现
+**新增文件**:
+- `services/prompt_builder.py` - 提示词构建器
+- `api/routes/soul.py` - SOUL API
+
+**新增 API**:
+- `GET /api/soul` - 获取用户 SOUL
+- `POST /api/soul` - 更新用户 SOUL
+- `GET /api/soul/template` - 获取默认模板
+- `GET /api/agents/{id}/capabilities` - 获取能力
+- `POST /api/agents/{id}/capabilities/update` - 更新能力
+- `POST /api/agents/{id}/prompt/preview` - 预览提示词
+
+#### 3. 前端实现
+**新增文件**:
+- `app/(dashboard)/settings/soul/page.tsx` - SOUL 管理页
+- `app/(dashboard)/agents/[id]/capabilities/page.tsx` - 能力详情页
+
+#### 4. 项目记忆
+- [x] 创建 `MEMORY.md` - 项目级长期记忆
+
+### 架构设计
+```
+UserSoul (SOUL) → Agent Identity (IDENTITY) → Dynamic Prompt
+```
+
+### 待完成
+
+### 完成 ✅
+- [x] 测试验证 - 前端构建成功，API 测试通过
+
+### 完成 ✅
+- [x] Agent Identity 编辑 UI - `/agents/[id]/identity`
+
+---
+
+## 2026-02-26 上午: 实验场开发
 
 ## 2026-02-25
 

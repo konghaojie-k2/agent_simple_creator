@@ -166,6 +166,18 @@ class ExperimentBase(BaseModel):
     description: Optional[str] = Field(None, description="Experiment description")
     experiment_type: str = Field(..., description="Experiment type: skill_creation, document, problem_solving, data_analysis, custom")
     template_id: Optional[str] = Field(None, description="Template ID to use")
+
+    # ==================== Background Info (Hybrid Mode) ====================
+    # Mode 1: Lightweight - fill directly
+    requirements: Optional[str] = Field(None, description="Specific requirements")
+    background: Optional[str] = Field(None, description="Background information")
+
+    # Mode 2: Reference documents/datasets/skills
+    doc_ids: List[str] = Field(default_factory=list, description="Referenced document IDs")
+    data_ids: List[str] = Field(default_factory=list, description="Referenced dataset IDs")
+    skill_ids: List[str] = Field(default_factory=list, description="Required skill IDs")
+
+    # ==================== Input/Output ====================
     input_data: Dict[str, Any] = Field(default_factory=dict, description="Experiment input data")
 
 
@@ -305,6 +317,145 @@ class ExperimentExperienceResponse(ExperimentExperienceBase):
     experiment_id: str
     user_id: str
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ==================== Document Schemas ====================
+
+class DocumentBase(BaseModel):
+    """Base document schema."""
+    name: str = Field(..., description="Document name")
+    description: Optional[str] = Field(None, description="Document description")
+    doc_type: str = Field("general", description="Document type: general, requirement, reference, template")
+    content: Optional[str] = Field(None, description="Document content (for small content)")
+    file_path: Optional[str] = Field(None, description="File path (for large content)")
+    tags: List[str] = Field(default_factory=list, description="Document tags")
+    extra_metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    category: Optional[str] = Field(None, description="Document category")
+    is_public: bool = Field(False, description="Is public")
+
+
+class DocumentCreate(DocumentBase):
+    """Schema for creating a document."""
+    pass
+
+
+class DocumentUpdate(BaseModel):
+    """Schema for updating a document."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    doc_type: Optional[str] = None
+    content: Optional[str] = None
+    file_path: Optional[str] = None
+    tags: Optional[List[str]] = None
+    extra_metadata: Optional[Dict[str, Any]] = None
+    category: Optional[str] = None
+    is_public: Optional[bool] = None
+
+
+class DocumentResponse(DocumentBase):
+    """Schema for document response."""
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+# Dataset Schemas
+class DatasetBase(BaseModel):
+    """Base dataset schema."""
+    name: str = Field(..., description="Dataset name")
+    description: Optional[str] = Field(None, description="Dataset description")
+    dataset_type: str = Field("json", description="Dataset type: json, csv, text, parquet")
+    data_schema: Dict[str, Any] = Field(default_factory=dict, description="Data schema (JSON Schema)", alias="schema")
+    file_path: Optional[str] = Field(None, description="File path (for large datasets)")
+    row_count: int = Field(0, description="Number of rows")
+    tags: List[str] = Field(default_factory=list, description="Dataset tags")
+    extra_metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    category: Optional[str] = Field(None, description="Dataset category")
+    is_public: bool = Field(False, description="Is public")
+
+    class Config:
+        populate_by_name = True
+
+
+class DatasetCreate(DatasetBase):
+    """Schema for creating a dataset."""
+    pass
+
+
+class DatasetUpdate(BaseModel):
+    """Schema for updating a dataset."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    dataset_type: Optional[str] = None
+    data_schema: Optional[Dict[str, Any]] = Field(None, alias="schema")
+    file_path: Optional[str] = None
+    row_count: Optional[int] = None
+    tags: Optional[List[str]] = None
+    extra_metadata: Optional[Dict[str, Any]] = None
+    category: Optional[str] = None
+    is_public: Optional[bool] = None
+
+    class Config:
+        populate_by_name = True
+
+
+class DatasetResponse(DatasetBase):
+    """Schema for dataset response."""
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+# Skill Schemas
+class SkillBase(BaseModel):
+    """Base skill schema."""
+    name: str = Field(..., description="Skill name")
+    description: Optional[str] = Field(None, description="Skill description")
+    category: str = Field("custom", description="Skill category: tool, template, prompt, custom")
+    content: Optional[str] = Field(None, description="Skill content (prompt, template, etc.)")
+    content_type: str = Field("text", description="Content type: text, json, yaml")
+    parameters_schema: Dict[str, Any] = Field(default_factory=dict, description="Parameters schema (JSON Schema)")
+    tags: List[str] = Field(default_factory=list, description="Skill tags")
+    extra_metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    is_public: bool = Field(False, description="Is public")
+
+
+class SkillCreate(SkillBase):
+    """Schema for creating a skill."""
+    pass
+
+
+class SkillUpdate(BaseModel):
+    """Schema for updating a skill."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    content: Optional[str] = None
+    content_type: Optional[str] = None
+    parameters_schema: Optional[Dict[str, Any]] = None
+    tags: Optional[List[str]] = None
+    extra_metadata: Optional[Dict[str, Any]] = None
+    is_public: Optional[bool] = None
+
+
+class SkillResponse(SkillBase):
+    """Schema for skill response."""
+    id: str
+    user_id: str
+    usage_count: int = Field(0, description="Usage count")
+    created_at: datetime
+    updated_at: Optional[datetime]
 
     class Config:
         from_attributes = True

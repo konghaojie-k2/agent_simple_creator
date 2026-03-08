@@ -44,7 +44,7 @@ class LLMProvider(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)  # Reference to myauth user
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    provider_type: Mapped[str] = mapped_column(String(50), nullable=False)  # deepseek, qwen, openai, custom
+    provider_type: Mapped[str] = mapped_column(String(50), nullable=False)  # deepseek, qwen, openai, ollama, custom
     api_base: Mapped[str] = mapped_column(String(500), nullable=False)
     api_key: Mapped[str] = mapped_column(String(500), nullable=False)  # Encrypted
     default_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -73,7 +73,22 @@ class Agent(Base):
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)  # Reference to myauth user
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # 系统提示词（基础提示，不包含动态经验）
     system_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # IDENTITY - Agent 的个性化身份定义
+    # 结构: {"name": "...", "creature": "...", "vibe": "...", "emoji": "...", "avatar": "..."}
+    identity: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    # 能力描述（从 Experience 聚合生成，也可手动维护）
+    # 结构: {"core_capabilities": [...], "learned_skills": [...], "preferred_tools": [...]}
+    capabilities: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    # 提示词配置（控制经验注入行为）
+    # 结构: {"inject_experiences": true, "max_experiences": 5, "injection_mode": "context"}
+    prompt_config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
     provider_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)  # No FK constraint
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     max_steps: Mapped[int] = mapped_column(Integer, default=50)
@@ -212,6 +227,19 @@ class Experiment(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     experiment_type: Mapped[str] = mapped_column(String(50), nullable=False, default=ExperimentType.DOCUMENT.value)
     template_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+
+    # ==================== 背景信息（混合模式） ====================
+
+    # 方式一：轻量级 - 直接填写
+    requirements: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # 具体需求说明
+    background: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # 背景信息
+
+    # 方式二：引用文档/数据集/技能
+    doc_ids: Mapped[list] = mapped_column(JSON, default=list)   # 引用的文档ID列表
+    data_ids: Mapped[list] = mapped_column(JSON, default=list)  # 引用的数据集ID列表
+    skill_ids: Mapped[list] = mapped_column(JSON, default=list)  # 需要的技能ID列表
+
+    # ==================== 实验输入输出 ====================
     input_data: Mapped[dict] = mapped_column(JSON, default=dict)
     output_data: Mapped[dict] = mapped_column(JSON, default=dict)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=ExperimentStatus.PENDING.value)
@@ -418,6 +446,43 @@ class AgentExperienceAbsorption(Base):
         return f"<AgentExperienceAbsorption {self.id}>"
 
 
+class UserSoul(Base):
+    """
+    用户级的 SOUL - 核心价值观和行为准则
+
+    参考 clawdbot 的 SOUL.md 设计：
+    - Core Truths: 核心价值观
+    - Boundaries: 行为边界
+    - Vibe: 风格/氛围
+
+    所有该用户创建的 Agent 共享同一个 Soul
+    """
+    __tablename__ = "user_souls"
+
+    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)  # 用户ID作为主键
+
+    # 核心真理/价值观
+    core_truths: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    # 行为边界
+    boundaries: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    # 风格/氛围
+    vibe: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # 完整的 SOUL 文本内容（Markdown 格式）
+    soul_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)
+
+    # Relationships
+    # 注意：不再建立 Agent 与 UserSoul 的直接关系，需要时通过 user_id 查询
+
+    def __repr__(self):
+        return f"<UserSoul {self.user_id}>"
+
+
 class MCPServerConfig(Base):
     """用户级 MCP Server 配置"""
     __tablename__ = "mcp_server_configs"
@@ -444,3 +509,141 @@ class MCPServerConfig(Base):
 
     def __repr__(self):
         return f"<MCPServerConfig {self.name} ({self.transport})>"
+
+
+class Document(Base):
+    """文档模型 - 用于 Doc Market（文档模板市场）
+
+    存储实验相关的文档、需求说明、参考资料等。
+    支持文件存储和数据库存储两种方式。
+    """
+
+    __tablename__ = "documents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # 文档类型
+    doc_type: Mapped[str] = mapped_column(String(50), nullable=False, default="general")  # general, requirement, reference, template
+
+    # 文档内容（轻量级内容直接存数据库）
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # 文件存储路径（大量内容存文件系统）
+    file_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # 元数据
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    extra_metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # 分类
+    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # 状态
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Document {self.name} ({self.doc_type})>"
+
+
+class DatasetType(PyEnum):
+    """Dataset type enumeration."""
+    JSON = "json"
+    CSV = "csv"
+    TEXT = "text"
+    PARQUET = "parquet"
+
+
+class Dataset(Base):
+    """数据集模型 - 用于 Data Market（数据集市场）
+
+    存储用户的数据集，支持文件存储和元数据管理。
+    """
+
+    __tablename__ = "datasets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # 数据集类型
+    dataset_type: Mapped[str] = mapped_column(String(20), nullable=False, default=DatasetType.JSON.value)
+
+    # 数据模式 (JSON Schema)
+    schema: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # 文件存储路径
+    file_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # 行数
+    row_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 元数据
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    extra_metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # 分类
+    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # 状态
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Dataset {self.name} ({self.dataset_type})>"
+
+
+class SkillCategory(PyEnum):
+    """Skill category enumeration."""
+    TOOL = "tool"
+    TEMPLATE = "template"
+    PROMPT = "prompt"
+    CUSTOM = "custom"
+
+
+class Skill(Base):
+    """用户级技能模型 - 用于 Skill Market（技能市场）
+
+    存储用户创建的技能，可被多个 Agent 复用。
+    """
+
+    __tablename__ = "skills"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # 技能分类
+    category: Mapped[str] = mapped_column(String(20), nullable=False, default=SkillCategory.CUSTOM.value)
+
+    # 技能内容（可以是 prompt、template 或配置）
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    content_type: Mapped[str] = mapped_column(String(20), default="text")  # text, json, yaml
+
+    # 参数模式 (JSON Schema)
+    parameters_schema: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # 元数据
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    extra_metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # 使用统计
+    usage_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 状态
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Skill {self.name} ({self.category})>"

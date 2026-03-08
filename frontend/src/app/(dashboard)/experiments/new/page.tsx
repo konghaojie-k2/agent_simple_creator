@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { experimentsApi, agentsApi, templatesApi } from '@/lib/api'
-import { Agent, ExperimentTemplate, ExperimentType } from '@/types'
+import { experimentsApi, agentsApi, templatesApi, documentsApi, datasetsApi, skillsApi } from '@/lib/api'
+import { Agent, ExperimentTemplate, ExperimentType, Document, Dataset, Skill } from '@/types'
 
 const experimentTypes = [
   { value: 'document', label: 'Document Generation', icon: '📄', description: 'Generate README, API docs, technical docs' },
@@ -18,6 +18,9 @@ export default function NewExperimentPage() {
   const router = useRouter()
   const [agents, setAgents] = useState<Agent[]>([])
   const [templates, setTemplates] = useState<ExperimentTemplate[]>([])
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [datasets, setDatasets] = useState<Dataset[]>([])
+  const [skills, setSkills] = useState<Skill[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<{
@@ -26,6 +29,12 @@ export default function NewExperimentPage() {
     agent_id: string;
     experiment_type: string;
     template_id: string;
+    // Background Info
+    requirements: string;
+    background: string;
+    doc_ids: string[];
+    data_ids: string[];
+    skill_ids: string[];
     input_data: string;
   }>({
     name: '',
@@ -33,6 +42,11 @@ export default function NewExperimentPage() {
     agent_id: '',
     experiment_type: 'document',
     template_id: '',
+    requirements: '',
+    background: '',
+    doc_ids: [],
+    data_ids: [],
+    skill_ids: [],
     input_data: '',
   })
 
@@ -42,12 +56,18 @@ export default function NewExperimentPage() {
 
   const loadData = async () => {
     try {
-      const [agentsData, templatesData] = await Promise.all([
+      const [agentsData, templatesData, documentsData, datasetsData, skillsData] = await Promise.all([
         agentsApi.list(),
         templatesApi.list(),
+        documentsApi.list(),
+        datasetsApi.list(),
+        skillsApi.list(),
       ])
       setAgents(agentsData)
       setTemplates(templatesData)
+      setDocuments(documentsData)
+      setDatasets(datasetsData)
+      setSkills(skillsData)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -66,6 +86,11 @@ export default function NewExperimentPage() {
         agent_id: formData.agent_id,
         experiment_type: formData.experiment_type as ExperimentType,
         template_id: formData.template_id || undefined,
+        requirements: formData.requirements || undefined,
+        background: formData.background || undefined,
+        doc_ids: formData.doc_ids.length > 0 ? formData.doc_ids : undefined,
+        data_ids: formData.data_ids.length > 0 ? formData.data_ids : undefined,
+        skill_ids: formData.skill_ids.length > 0 ? formData.skill_ids : undefined,
         input_data: inputData,
       })
       router.push('/experiments')
@@ -239,6 +264,156 @@ export default function NewExperimentPage() {
                         <div className="font-medium text-gray-900">{template.name}</div>
                         <div className="text-xs text-gray-500">{template.description}</div>
                       </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Background Info */}
+            <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Background Information</h2>
+              <p className="text-sm text-gray-500 mb-4">Provide context for your experiment (choose lightweight or reference mode)</p>
+
+              {/* Mode 1: Lightweight - direct input */}
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Requirements</label>
+                  <textarea
+                    value={formData.requirements}
+                    onChange={e => setFormData({ ...formData, requirements: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    rows={3}
+                    placeholder="What specific requirements should the experiment meet?"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Background</label>
+                  <textarea
+                    value={formData.background}
+                    onChange={e => setFormData({ ...formData, background: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    rows={3}
+                    placeholder="Additional background information..."
+                  />
+                </div>
+              </div>
+
+              {/* Mode 2: Reference documents */}
+              {documents.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Reference Documents</label>
+                  <p className="text-xs text-gray-500 mb-2">Select documents to reference in this experiment</p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {documents.map(doc => (
+                      <label
+                        key={doc.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          formData.doc_ids.includes(doc.id)
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-200'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.doc_ids.includes(doc.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, doc_ids: [...formData.doc_ids, doc.id] })
+                            } else {
+                              setFormData({ ...formData, doc_ids: formData.doc_ids.filter(id => id !== doc.id) })
+                            }
+                          }}
+                          className="text-purple-600 focus:ring-purple-500"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{doc.name}</div>
+                          {doc.description && (
+                            <div className="text-xs text-gray-500">{doc.description}</div>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400">{doc.doc_type}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Reference Datasets */}
+            {datasets.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Reference Datasets</label>
+                <p className="text-xs text-gray-500 mb-2">Select datasets to use in this experiment</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {datasets.map(dataset => (
+                    <label
+                      key={dataset.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.data_ids.includes(dataset.id)
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-200'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.data_ids.includes(dataset.id)}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setFormData({ ...formData, data_ids: [...formData.data_ids, dataset.id] })
+                          } else {
+                            setFormData({ ...formData, data_ids: formData.data_ids.filter(id => id !== dataset.id) })
+                          }
+                        }}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{dataset.name}</div>
+                        {dataset.description && (
+                          <div className="text-xs text-gray-500">{dataset.description}</div>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">{dataset.dataset_type}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Required Skills */}
+            {skills.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Required Skills</label>
+                <p className="text-xs text-gray-500 mb-2">Select skills needed for this experiment</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {skills.map(skill => (
+                    <label
+                      key={skill.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.skill_ids.includes(skill.id)
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-green-200'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.skill_ids.includes(skill.id)}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setFormData({ ...formData, skill_ids: [...formData.skill_ids, skill.id] })
+                          } else {
+                            setFormData({ ...formData, skill_ids: formData.skill_ids.filter(id => id !== skill.id) })
+                          }
+                        }}
+                        className="text-green-600 focus:ring-green-500"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{skill.name}</div>
+                        {skill.description && (
+                          <div className="text-xs text-gray-500">{skill.description}</div>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">{skill.category}</span>
                     </label>
                   ))}
                 </div>
