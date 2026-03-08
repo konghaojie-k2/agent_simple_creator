@@ -95,7 +95,9 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ## Important Notes
 
 1. **Windows Environment**: Use quoted paths like `cd "path/to/dir"`, avoid `&&` syntax
-2. **Encoding**: All Python files must include `# -*- coding: utf-8 -*-`
+2. **Encoding**:
+   - **Python files**: Must include `# -*- coding: utf-8 -*-`
+   - **Frontend (TypeScript/JS)**: Do NOT add Python encoding declarations
 3. **myauth Integration**: Auth integrated from `C:\Users\17625\Documents\GitHub\my-auth`
 4. **API Keys**: Stored encrypted using Fernet in the database
 5. **Async**: Use `async/await` for all database and HTTP operations

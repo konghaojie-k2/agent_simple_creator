@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 "use client"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { ExperimentType, CollaborationType, type Participant, type ParticipantRole } from "@/types"
+import { ExperimentType, CollaborationType, type ExperimentParticipantCreate, type ParticipantRole } from "@/types"
 
 // API client
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -18,7 +17,7 @@ interface Agent {
 
 export default function NewCollaborationExperimentPage() {
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
 
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,7 +27,7 @@ export default function NewCollaborationExperimentPage() {
   const [experimentDesc, setExperimentDesc] = useState("")
   const [experimentType, setExperimentType] = useState< ExperimentType>("collaboration")
   const [collaborationType, setCollaborationType] = useState< CollaborationType>("sequential")
-  const [participants, setParticipants] = useState<Participant[]>([
+  const [participants, setParticipants] = useState<ExperimentParticipantCreate[]>([
     { agent_id: "", role: "leader", join_order: 0 }
   ])
   const [maxRounds, setMaxRounds] = useState(3)
@@ -76,7 +75,7 @@ export default function NewCollaborationExperimentPage() {
     }
   }
 
-  const updateParticipant = (index: number, field: keyof Participant, value: string | number) => {
+  const updateParticipant = (index: number, field: keyof ExperimentParticipantCreate, value: string | number) => {
     const newParticipants = [...participants]
     ;(newParticipants[index] as any)[field] = value
     setParticipants(newParticipants)

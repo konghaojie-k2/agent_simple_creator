@@ -40,22 +40,30 @@ class LLMClient:
         api_base: str,
         model: str = "gpt-4",
         timeout: float = 120.0,
+        provider_type: str = None,
     ):
         self.api_key = api_key
         self.api_base = api_base.rstrip("/")
         self.model = model
         self.timeout = timeout
+        self.provider_type = provider_type
 
         # Normalize api_base - ensure it has /v1 suffix for OpenAI-compatible APIs
-        if not self.api_base.endswith("/v1"):
+        # Skip for Ollama (local) - it doesn't use /v1
+        self.is_ollama = "localhost:11434" in self.api_base
+        if not self.is_ollama and not self.api_base.endswith("/v1"):
             self.api_base = f"{self.api_base}/v1"
+
+        # Build headers - Ollama doesn't need Authorization header
+        headers = {
+            "Content-Type": "application/json",
+        }
+        if api_key:  # Only add Authorization if API key is provided
+            headers["Authorization"] = f"Bearer {api_key}"
 
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
         )
 
     async def close(self):
@@ -93,10 +101,17 @@ class LLMClient:
             payload.pop("stream", None)
 
         try:
-            response = await self._client.post(
-                f"{self.api_base}/chat/completions",
-                json=payload,
-            )
+            # Use different endpoint for Ollama
+            if self.is_ollama:
+                response = await self._client.post(
+                    f"{self.api_base}/api/chat",
+                    json=payload,
+                )
+            else:
+                response = await self._client.post(
+                    f"{self.api_base}/chat/completions",
+                    json=payload,
+                )
             response.raise_for_status()
             data = response.json()
 
@@ -104,9 +119,17 @@ class LLMClient:
             if stream:
                 return data  # Return raw data for streaming
 
-            # Parse response
-            choice = data.get("choices", [{}])[0]
-            message = choice.get("message", {})
+            # Parse response - Ollama format is different
+            if self.is_ollama:
+                # Ollama response format: { "message": { "role": "assistant", "content": "..." }, ... }
+                message = data.get("message", {})
+                content = message.get("content", "")
+                thinking = None
+                tool_calls = None
+            else:
+                # OpenAI format
+                choice = data.get("choices", [{}])[0]
+                message = choice.get("message", {})
 
             # Extract content
             content = message.get("content", "")
@@ -131,11 +154,18 @@ class LLMClient:
             # Extract usage
             usage = data.get("usage")
 
+            # Get finish_reason
+            if self.is_ollama:
+                finish_reason = data.get("done", False)
+                finish_reason = "stop" if finish_reason else "length"
+            else:
+                finish_reason = choice.get("finish_reason", "stop")
+
             return LLMResponse(
                 content=content,
                 thinking=thinking,
                 tool_calls=tool_calls,
-                finish_reason=choice.get("finish_reason", "stop"),
+                finish_reason=finish_reason,
                 usage=usage,
             )
 
@@ -168,15 +198,38 @@ class LLMClient:
             payload["tools"] = tools
 
         try:
+            # Use different endpoint for Ollama
+            if self.is_ollama:
+                endpoint = f"{self.api_base}/api/chat"
+            else:
+                endpoint = f"{self.api_base}/chat/completions"
+
             async with self._client.stream(
                 "POST",
-                f"{self.api_base}/chat/completions",
+                endpoint,
                 json=payload,
             ) as response:
                 response.raise_for_status()
 
                 async for line in response.aiter_lines():
-                    if line.startswith("data: "):
+                    if not line.strip():
+                        continue
+
+                    # Handle Ollama format (JSON per line)
+                    if self.is_ollama:
+                        try:
+                            data = json.loads(line)
+                            if data.get("done"):
+                                break
+                            message = data.get("message", {})
+                            content = message.get("content", "")
+                            if content:
+                                yield content
+                        except json.JSONDecodeError:
+                            continue
+
+                    # Handle OpenAI format
+                    elif line.startswith("data: "):
                         data_str = line[6:]
                         if data_str.strip() == "[DONE]":
                             break

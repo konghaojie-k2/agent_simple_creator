@@ -24,6 +24,7 @@ from agent_builder.services.mcp_client_manager import MCPClientManager
 from agent_builder.services.tool_registry import get_tool_registry
 from agent_builder.services.experience_manager import get_experience_manager
 from agent_builder.services.skill_system import AgentSkillSystem
+from agent_builder.services.prompt_builder import get_prompt_builder
 
 
 class ExperimentEngine:
@@ -164,7 +165,8 @@ class ExperimentEngine:
         感知阶段：收集信息
 
         1. 检索相关经验
-        2. 准备执行上下文
+        2. 构建动态提示词
+        3. 准备执行上下文
         """
         context = ExecutionContext(
             experiment_id=experiment.id,
@@ -172,8 +174,35 @@ class ExperimentEngine:
             user_id=user_id
         )
 
-        # 检索相关经验（同用户的 verified 经验 + 当前 agent 的 draft 经验）
+        # ========== 新增：构建动态提示词 ==========
         task_description = experiment.input_data.get("task", "")
+
+        # 获取技能元数据（来自技能系统）
+        skill_system = AgentSkillSystem(
+            user_id=user_id,
+            agent_id=agent.id,
+            shared_skills_dir="./skills",
+            workspaces_dir="./workspaces"
+        )
+        skill_metadata = skill_system.get_system_prompt()
+
+        # 构建动态提示词（基础提示 + 能力 + 经验 + 技能）
+        prompt_builder = get_prompt_builder(self.db, self.experience_service)
+        dynamic_prompt = await prompt_builder.build_agent_prompt(
+            agent=agent,
+            task_description=task_description,
+            user_id=user_id,
+            skill_metadata=skill_metadata,
+            additional_context={
+                "experiment_type": experiment.experiment_type,
+                "experiment_name": experiment.name,
+            }
+        )
+
+        # 将动态提示词保存到上下文
+        context.dynamic_system_prompt = dynamic_prompt
+
+        # 检索相关经验（同用户的 verified 经验 + 当前 agent 的 draft 经验）
         relevant_exps = await self.experience_service.search_relevant_experiences(
             user_id=user_id,
             agent_id=agent.id,

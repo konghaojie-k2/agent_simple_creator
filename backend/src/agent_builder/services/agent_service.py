@@ -262,6 +262,7 @@ class ChatService:
             api_key=api_key,
             api_base=provider.api_base,
             model=agent.model,
+            provider_type=provider.provider_type,
         )
 
         try:

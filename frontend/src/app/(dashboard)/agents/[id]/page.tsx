@@ -76,6 +76,39 @@ export default function AgentDetailPage() {
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
+          {/* Agent Identity */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Agent Identity</h2>
+              <Link
+                href={`/agents/${agent.id}/identity`}
+                className="text-purple-600 hover:text-purple-700 text-sm"
+              >
+                Edit Identity →
+              </Link>
+            </div>
+            {agent.identity && (agent.identity.name || agent.identity.creature || agent.identity.emoji) ? (
+              <div className="flex items-center gap-4 p-4 bg-purple-50 rounded-lg">
+                <div className="text-4xl">{agent.identity.emoji || '🤖'}</div>
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {agent.identity.name || agent.name}
+                    {agent.identity.vibe && (
+                      <span className="text-gray-500 font-normal ml-2">({agent.identity.vibe})</span>
+                    )}
+                  </div>
+                  {agent.identity.creature && (
+                    <div className="text-sm text-gray-600">{agent.identity.creature}</div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-gray-500 text-sm">
+                未设置 Identity，<Link href={`/agents/${agent.id}/identity`} className="text-purple-600 hover:underline">点击设置</Link>
+              </div>
+            )}
+          </div>
+
           {/* Agent Info */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Agent Information</h2>

@@ -2,14 +2,27 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { agentsApi, providersApi } from '@/lib/api'
-import { Agent, LLMProvider } from '@/types'
+import { Agent, LLMProvider, AgentCapabilities } from '@/types'
 
 export default function AgentsPage() {
+  const router = useRouter()
   const [agents, setAgents] = useState<Agent[]>([])
   const [providers, setProviders] = useState<LLMProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+
+  // 能力相关状态
+  const [showCapabilities, setShowCapabilities] = useState<string | null>(null)
+  const [capabilities, setCapabilities] = useState<AgentCapabilities | null>(null)
+  const [loadingCapabilities, setLoadingCapabilities] = useState(false)
+
+  // 提示词预览状态
+  const [showPromptPreview, setShowPromptPreview] = useState<string | null>(null)
+  const [promptPreview, setPromptPreview] = useState<string | null>(null)
+  const [taskDescription, setTaskDescription] = useState('')
+
   const [newAgent, setNewAgent] = useState({
     name: '',
     description: '',
@@ -65,6 +78,75 @@ export default function AgentsPage() {
     } catch (error) {
       console.error('Failed to delete agent:', error)
     }
+  }
+
+  // 查看能力
+  const handleViewCapabilities = async (agentId: string) => {
+    setShowCapabilities(agentId)
+    setLoadingCapabilities(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/${agentId}/capabilities`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setCapabilities(data)
+      }
+    } catch (error) {
+      console.error('Failed to load capabilities:', error)
+    } finally {
+      setLoadingCapabilities(false)
+    }
+  }
+
+  // 更新能力（从 Experience 重新聚合）
+  const handleUpdateCapabilities = async (agentId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/${agentId}/capabilities/update`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setCapabilities(data)
+        loadData() // 刷新 Agent 列表以显示更新后的能力
+      }
+    } catch (error) {
+      console.error('Failed to update capabilities:', error)
+    }
+  }
+
+  // 预览提示词
+  const handlePreviewPrompt = async (agentId: string) => {
+    if (!taskDescription.trim()) {
+      alert('Please enter a task description first')
+      return
+    }
+    setShowPromptPreview(agentId)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/${agentId}/prompt/preview`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ task_description: taskDescription })
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setPromptPreview(data.dynamic_prompt)
+      }
+    } catch (error) {
+      console.error('Failed to preview prompt:', error)
+    }
+  }
+
+  // 跳转到能力详情页
+  const goToCapabilitiesPage = (agentId: string) => {
+    router.push(`/agents/${agentId}/capabilities`)
   }
 
   if (loading) {
@@ -204,23 +286,34 @@ export default function AgentsPage() {
                   <div className="mt-4 text-sm text-gray-600">
                     <p>Model: {agent.model}</p>
                     <p>Max Steps: {agent.max_steps}</p>
+                    {agent.capabilities && (
+                      <p className="text-green-600">
+                        已掌握 {agent.capabilities.learned_skills?.length || 0} 项技能
+                      </p>
+                    )}
                   </div>
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 grid grid-cols-2 gap-2">
                     <Link
                       href={`/agents/${agent.id}`}
-                      className="flex-1 text-center bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors"
+                      className="text-center bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors text-sm"
                     >
                       Details
                     </Link>
                     <Link
                       href={`/chat/${agent.id}`}
-                      className="flex-1 text-center bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 transition-colors"
+                      className="text-center bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 transition-colors text-sm"
                     >
                       Chat
                     </Link>
                     <button
+                      onClick={() => goToCapabilitiesPage(agent.id)}
+                      className="text-center bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition-colors text-sm"
+                    >
+                      能力
+                    </button>
+                    <button
                       onClick={() => handleDelete(agent.id)}
-                      className="text-red-600 hover:text-red-700 px-3"
+                      className="text-center text-red-600 hover:text-red-700 py-2 px-4 rounded-md border border-red-300 hover:bg-red-50 text-sm"
                     >
                       Delete
                     </button>

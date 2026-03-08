@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 "use client"
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { type Experiment, type Participant, type AgentMessage, type CollaborationType } from "@/types"
+import { type Experiment, type ExperimentParticipant, type AgentMessage, type CollaborationType } from "@/types"
 
 // API client
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -13,10 +12,10 @@ export default function CollaborationExperimentDetailsPage() {
   const router = useRouter()
   const params = useParams()
   const experimentId = params.id as string
-  const { user, loading: authLoading } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
 
   const [experiment, setExperiment] = useState<Experiment | null>(null)
-  const [participants, setParticipants] = useState<Participant[]>([])
+  const [participants, setParticipants] = useState<ExperimentParticipant[]>([])
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)

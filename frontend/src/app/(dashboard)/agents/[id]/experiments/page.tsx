@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 "use client"
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { type Agent, type Experiment, type Participant } from "@/types"
+import { type Agent, type Experiment, type ExperimentParticipant } from "@/types"
 
 // API client
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -13,11 +12,11 @@ export default function AgentExperimentsPage() {
   const router = useRouter()
   const params = useParams()
   const agentId = params.id as string
-  const { user, loading: authLoading } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
 
   const [agent, setAgent] = useState<Agent | null>(null)
   const [experiments, setExperiments] = useState<Experiment[]>([])
-  const [participations, setParticipations] = useState<Participant[]>([])
+  const [participations, setParticipations] = useState<ExperimentParticipant[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "participated">("participated")
 
@@ -84,7 +83,7 @@ export default function AgentExperimentsPage() {
         )
 
         // Fetch participants for each collaboration experiment
-        const allParticipants: Participant[] = []
+        const allExperimentParticipants: ExperimentParticipant[] = []
         for (const exp of collaborationExperiments) {
           try {
             const partResponse = await fetch(
@@ -96,14 +95,14 @@ export default function AgentExperimentsPage() {
               }
             )
             if (partResponse.ok) {
-              const parts: Participant[] = await partResponse.json()
-              allParticipants.push(...parts.filter(p => p.agent_id === agentId))
+              const parts: ExperimentParticipant[] = await partResponse.json()
+              allExperimentParticipants.push(...parts.filter(p => p.agent_id === agentId))
             }
           } catch (e) {
             console.error("Failed to fetch participants:", e)
           }
         }
-        setParticipations(allParticipants)
+        setParticipations(allExperimentParticipants)
       }
     } catch (error) {
       console.error("Failed to fetch participations:", error)

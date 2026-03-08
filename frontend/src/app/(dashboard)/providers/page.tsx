@@ -18,6 +18,10 @@ const PROVIDER_DEFAULTS: Record<string, { api_base: string; default_model: strin
     api_base: 'https://api.openai.com/v1',
     default_model: 'gpt-4',
   },
+  ollama: {
+    api_base: 'http://localhost:11434',
+    default_model: 'llama3.2',
+  },
 }
 
 export default function ProvidersPage() {
@@ -147,6 +151,7 @@ export default function ProvidersPage() {
                     <option value="deepseek">DeepSeek</option>
                     <option value="qwen">Qwen (Alibaba)</option>
                     <option value="openai">OpenAI</option>
+                    <option value="ollama">Ollama (本地)</option>
                     <option value="custom">Custom</option>
                   </select>
                 </div>

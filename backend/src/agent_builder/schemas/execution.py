@@ -40,6 +40,9 @@ class ExecutionContext(BaseModel):
     agent_id: str
     user_id: str
 
+    # 动态系统提示词（由 prompt_builder 构建）
+    dynamic_system_prompt: Optional[str] = None
+
     # 相关经验
     relevant_experiences: List[Dict[str, Any]] = []
 
