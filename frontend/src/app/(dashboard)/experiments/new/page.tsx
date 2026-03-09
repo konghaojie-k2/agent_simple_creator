@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { experimentsApi, agentsApi, templatesApi, documentsApi, datasetsApi, skillsApi } from '@/lib/api'
 import { Agent, ExperimentTemplate, ExperimentType, Document, Dataset, Skill } from '@/types'
@@ -16,6 +16,7 @@ const experimentTypes = [
 
 export default function NewExperimentPage() {
   const router = useRouter()
+  // const searchParams = useSearchParams() // TODO: re-enable for template functionality
   const [agents, setAgents] = useState<Agent[]>([])
   const [templates, setTemplates] = useState<ExperimentTemplate[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
@@ -50,6 +51,29 @@ export default function NewExperimentPage() {
     input_data: '',
   })
 
+  // 从 URL 读取 template 参数并应用模板配置
+  /*
+  useEffect(() => {
+    const templateId = searchParams.get('template')
+    if (templateId && templates.length > 0) {
+      const template = templates.find(t => t.id === templateId)
+      if (template && template.template_config) {
+        const config = template.template_config as Record<string, any>
+        setFormData(prev => ({
+          ...prev,
+          template_id: templateId,
+          experiment_type: config.experiment_type || prev.experiment_type,
+          requirements: config.requirements || prev.requirements,
+          background: config.background || prev.background,
+          input_data: config.input_data ? JSON.stringify(config.input_data, null, 2) : prev.input_data,
+        }))
+      } else {
+        setFormData(prev => ({ ...prev, template_id: templateId }))
+      }
+    }
+  }, [searchParams, templates])
+  */
+
   useEffect(() => {
     loadData()
   }, [])
@@ -63,11 +87,12 @@ export default function NewExperimentPage() {
         datasetsApi.list(),
         skillsApi.list(),
       ])
-      setAgents(agentsData)
-      setTemplates(templatesData)
-      setDocuments(documentsData)
-      setDatasets(datasetsData)
-      setSkills(skillsData)
+      console.log('Loaded agents:', agentsData)
+      setAgents(agentsData || [])
+      setTemplates(templatesData || [])
+      setDocuments(documentsData || [])
+      setDatasets(datasetsData || [])
+      setSkills(skillsData || [])
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -300,10 +325,12 @@ export default function NewExperimentPage() {
               </div>
 
               {/* Mode 2: Reference documents */}
-              {documents.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reference Documents</label>
-                  <p className="text-xs text-gray-500 mb-2">Select documents to reference in this experiment</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Reference Documents</label>
+                <p className="text-xs text-gray-500 mb-2">Select documents to reference in this experiment</p>
+                {documents.length === 0 ? (
+                  <p className="text-sm text-gray-400 py-2">No documents available. Create one in Doc Market first.</p>
+                ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {documents.map(doc => (
                       <label
@@ -336,15 +363,17 @@ export default function NewExperimentPage() {
                       </label>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Reference Datasets */}
-            {datasets.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Reference Datasets</label>
-                <p className="text-xs text-gray-500 mb-2">Select datasets to use in this experiment</p>
+            <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reference Datasets</label>
+              <p className="text-xs text-gray-500 mb-2">Select datasets to use in this experiment</p>
+              {datasets.length === 0 ? (
+                <p className="text-sm text-gray-400 py-2">No datasets available. Create one in Data Market first.</p>
+              ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {datasets.map(dataset => (
                     <label
@@ -377,14 +406,16 @@ export default function NewExperimentPage() {
                     </label>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Required Skills */}
-            {skills.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Required Skills</label>
-                <p className="text-xs text-gray-500 mb-2">Select skills needed for this experiment</p>
+            <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Required Skills</label>
+              <p className="text-xs text-gray-500 mb-2">Select skills needed for this experiment</p>
+              {skills.length === 0 ? (
+                <p className="text-sm text-gray-400 py-2">No skills available. Create one in Skill Market first.</p>
+              ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {skills.map(skill => (
                     <label
@@ -417,8 +448,8 @@ export default function NewExperimentPage() {
                     </label>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Input Data */}
             <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">

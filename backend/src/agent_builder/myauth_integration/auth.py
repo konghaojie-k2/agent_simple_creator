@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from loguru import logger
 
 # Security scheme
 security = HTTPBearer(auto_error=False)
@@ -12,44 +13,50 @@ security = HTTPBearer(auto_error=False)
 
 async def get_current_user(request: Request) -> str:
     """Get current user ID from JWT token.
-    
+
     This dependency expects the auth framework to be registered
     in request.app.state.auth_framework.
-    
+
     Returns:
         The user ID string from the token.
-        
+
     Raises:
         HTTPException: If not authenticated or token is invalid.
     """
     from fastapi import HTTPException, status
     from myauth import User
-    
+
+    logger.debug(f"Auth request: {request.url.path}")
+
     # Get auth framework from app state
     auth_framework = getattr(request.app.state, 'auth_framework', None)
     if not auth_framework:
+        logger.error("Auth framework not initialized")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Auth framework not initialized",
         )
-    
+
     # Get credentials
     creds = await security(request)
     if not creds:
+        logger.warning(f"No credentials provided for {request.url.path}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Verify token
     user = await auth_framework.identity.verify_token(creds.credentials)
     if not user:
+        logger.warning(f"Invalid token for {request.url.path}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
-    
+
+    logger.info(f"User authenticated: {user.id}")
     return user.id
 
 

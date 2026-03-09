@@ -317,9 +317,26 @@ class ExperimentParticipant(Base):
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
 
     # 角色配置
-    role: Mapped[str] = mapped_column(String(50), nullable=False, default="worker")  # leader, worker, reviewer, observer
+    role: Mapped[str] = mapped_column(String(50), nullable=False, default="worker")  # leader, worker, reviewer, observer, supervisor, manager
     join_order: Mapped[int] = mapped_column(Integer, default=0)  # 加入顺序（用于顺序执行）
 
+    # ===== 新增：Agent 关系配置 =====
+
+    # 1. 依赖关系 - 依赖的 Agent ID 列表
+    depends_on: Mapped[Optional[list]] = mapped_column(JSON, nullable=True, default=list)
+
+    # 2. 消息路由 - 消息发送目标
+    # to_single: 发送给单个 Agent
+    # to_group: 发送给指定组
+    # to_all: 广播给所有 Agent
+    # to_parent: 发送给上级 (用于层级模式)
+    # to_children: 发送给下级 (用于层级模式)
+    message_to: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # 3. 层级关系 - 父级 Agent ID
+    parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+
+    # ===== 原有字段 =====
     # 状态管理
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, active, completed, failed
 
@@ -544,6 +561,9 @@ class Document(Base):
     # 状态
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # 来源: "database"(用户创建) 或 "filesystem"(系统预置)
+    source: Mapped[str] = mapped_column(String(20), default="database")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)
 
@@ -594,6 +614,9 @@ class Dataset(Base):
     # 状态
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # 来源: "database"(用户创建) 或 "filesystem"(系统预置)
+    source: Mapped[str] = mapped_column(String(20), default="database")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)
 
@@ -641,6 +664,9 @@ class Skill(Base):
 
     # 状态
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # 来源: "database"(用户创建) 或 "filesystem"(系统预置)
+    source: Mapped[str] = mapped_column(String(20), default="database")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None, onupdate=datetime.utcnow)

@@ -52,9 +52,9 @@ class TestAgentInitialization:
         # Initialize directories
         dirs = initializer.initialize_agent_directories(user_id, agent_id)
 
-        # Verify all directories exist
+        # Verify all directories exist (正确的路径是 workspaces/{user_id}/agents/{agent_id})
         workspaces = Path("./workspaces")
-        agent_dir = workspaces / user_id / agent_id
+        agent_dir = workspaces / user_id / "agents" / agent_id
 
         assert agent_dir.exists(), "Agent directory should exist"
         assert (agent_dir / "skills").exists(), "Skills directory should exist"
@@ -72,16 +72,16 @@ class TestAgentInitialization:
         # Initialize directories
         initializer.initialize_agent_directories(user_id, agent_id)
 
-        # Copy shared skills (use parent directory path since we're in backend/)
+        # Copy shared skills (新路径: market/skills/public)
         copied_skills = initializer.copy_shared_skills_to_agent(
             user_id=user_id,
             agent_id=agent_id,
-            shared_skills_dir="../skills"
+            shared_skills_dir="./market/skills/public"
         )
 
-        # Verify skills were copied
-        agent_skills_dir = Path("./workspaces") / user_id / agent_id / "skills"
-        shared_skills_dir = Path("../skills")
+        # Verify skills were copied (正确的路径是 workspaces/{user_id}/agents/{agent_id}/skills)
+        agent_skills_dir = Path("./workspaces") / user_id / "agents" / agent_id / "skills"
+        shared_skills_dir = Path("./market/skills/public")
 
         # Count shared skills with SKILL.md
         shared_skill_count = sum(
@@ -90,7 +90,7 @@ class TestAgentInitialization:
         )
 
         assert len(copied_skills) > 0, "At least one shared skill should be copied"
-        
+
         # Verify each copied skill has SKILL.md
         for skill_name in copied_skills:
             skill_path = agent_skills_dir / skill_name

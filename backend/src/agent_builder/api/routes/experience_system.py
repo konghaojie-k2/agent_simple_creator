@@ -25,7 +25,7 @@ from agent_builder.schemas.experience import (
     AgentExperienceAbsorptionResponse,
     AgentAbsorbedExperiencesResponse,
 )
-from agent_builder.services.experience_service import ExperienceService
+from agent_builder.services.core.experience_service import ExperienceService
 
 
 router = APIRouter(prefix="/api/experiences", tags=["experiences"])

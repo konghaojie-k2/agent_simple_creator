@@ -26,11 +26,19 @@ class MarketService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.workspaces_dir = Path("./workspaces")
+        # market 目录：存放共享的文档/数据集/技能
+        self.market_root = Path(__file__).parent.parent.parent.parent / "market" / "data"
 
-    def _get_dataset_storage_path(self, user_id: str, dataset_id: str) -> Path:
-        """获取数据集存储路径"""
-        return self.workspaces_dir / user_id / "data" / dataset_id
+    def _get_dataset_dir(self, user_id: str, dataset_id: str, is_public: bool = False) -> Path:
+        """获取数据集存储目录（根据是否公开选择public或private）"""
+        visibility = "public" if is_public else "private"
+        dataset_dir = self.market_root / visibility / user_id / dataset_id
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        return dataset_dir
+
+    def _get_dataset_storage_path(self, user_id: str, dataset_id: str, is_public: bool = False) -> Path:
+        """获取数据集存储路径（根据是否公开选择public或private目录）"""
+        return self._get_dataset_dir(user_id, dataset_id, is_public)
 
     async def create_dataset(
         self,
@@ -177,7 +185,7 @@ class MarketService:
             return False
 
         # 删除存储的文件
-        storage_path = self._get_dataset_storage_path(user_id, dataset_id)
+        storage_path = self._get_dataset_storage_path(user_id, dataset_id, dataset.is_public)
         if storage_path.exists():
             import shutil
             shutil.rmtree(storage_path)
@@ -185,3 +193,63 @@ class MarketService:
         await self.db.delete(dataset)
         await self.db.commit()
         return True
+
+    async def list_datasets_by_visibility(
+        self,
+        user_id: str,
+        is_public: Optional[bool] = None,
+        dataset_type: Optional[str] = None,
+        category: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Dataset]:
+        """按可见性列出数据集"""
+        from sqlalchemy import and_, or_
+
+        conditions = [
+            or_(
+                Dataset.user_id == user_id,
+                Dataset.is_public == True
+            )
+        ]
+
+        if is_public is not None:
+            conditions.append(Dataset.is_public == is_public)
+
+        if dataset_type:
+            conditions.append(Dataset.dataset_type == dataset_type)
+
+        if category:
+            conditions.append(Dataset.category == category)
+
+        if tags:
+            for tag in tags:
+                conditions.append(Dataset.tags.contains([tag]))
+
+        query = select(Dataset).where(and_(*conditions)).order_by(
+            Dataset.created_at.desc()
+        ).limit(limit).offset(offset)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def update_dataset_visibility(
+        self,
+        dataset_id: str,
+        user_id: str,
+        is_public: bool
+    ) -> Optional[Dataset]:
+        """更新数据集可见性（私有<->公共转换）"""
+        dataset = await self.get_dataset(dataset_id, user_id)
+        if not dataset:
+            return None
+
+        # 只有数据集所有者可以修改可见性
+        if dataset.user_id != user_id and dataset.source != "filesystem":
+            return None
+
+        dataset.is_public = is_public
+        await self.db.commit()
+        await self.db.refresh(dataset)
+        return dataset

@@ -12,7 +12,7 @@ from agent_builder.core.database import get_db
 from agent_builder.db.models import Agent, LLMProvider
 from agent_builder.myauth_integration.auth import get_current_user
 from agent_builder.schemas.pydantic import ChatSessionResponse
-from agent_builder.services.agent_service import AgentService, ChatService
+from agent_builder.services.agent.agent_service import AgentService, ChatService
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])

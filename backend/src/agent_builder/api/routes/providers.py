@@ -14,7 +14,7 @@ from agent_builder.schemas.pydantic import (
     LLMProviderResponse,
     LLMProviderUpdate,
 )
-from agent_builder.services.agent_service import AgentService
+from agent_builder.services.agent.agent_service import AgentService
 
 
 router = APIRouter(prefix="/api/providers", tags=["providers"])

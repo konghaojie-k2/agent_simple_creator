@@ -32,7 +32,11 @@ const authAxios = axios.create({
 });
 
 authAxios.interceptors.request.use((config) => {
-  const token = Cookies.get('access_token');
+  let token: string | undefined = Cookies.get('access_token');
+  // Fallback to localStorage if cookie not found
+  if (!token && typeof window !== 'undefined') {
+    token = localStorage.getItem('token') || undefined;
+  }
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -42,6 +46,7 @@ authAxios.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       Cookies.remove('access_token');
+      if (typeof window !== 'undefined') localStorage.removeItem('token');
       window.location.href = '/auth/login';
     }
     return Promise.reject(error);
@@ -54,31 +59,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      const token = Cookies.get('access_token');
+      let token: string | undefined = Cookies.get('access_token');
+      // Fallback to localStorage if cookie not found
+      if (!token && typeof window !== 'undefined') {
+        token = localStorage.getItem('token') || undefined;
+      }
       if (!token) { setUser(null); return; }
       const response = await authAxios.get('/auth/me');
       setUser(response.data);
-    } catch { 
-      Cookies.remove('access_token'); 
-      setUser(null); 
+    } catch {
+      Cookies.remove('access_token');
+      if (typeof window !== 'undefined') localStorage.removeItem('token');
+      setUser(null);
     }
   };
 
   const login = async (email: string, password: string) => {
     const response = await authAxios.post('/auth/login', { email, password });
-    Cookies.set('access_token', response.data.access_token, { expires: 1 / 24 });
+    const token = response.data.access_token;
+    Cookies.set('access_token', token, { expires: 1 / 24 });
+    localStorage.setItem('token', token);  // Also save to localStorage for api.ts
     await refreshUser();
   };
 
   const register = async (email: string, password: string, name: string) => {
     const response = await authAxios.post('/auth/register', { email, password, name });
-    Cookies.set('access_token', response.data.access_token, { expires: 1 / 24 });
+    const token = response.data.access_token;
+    Cookies.set('access_token', token, { expires: 1 / 24 });
+    localStorage.setItem('token', token);  // Also save to localStorage for api.ts
     await refreshUser();
   };
 
   const logout = async () => {
     try { await authAxios.post('/auth/logout'); }
-    finally { Cookies.remove('access_token'); setUser(null); }
+    finally {
+      Cookies.remove('access_token');
+      localStorage.removeItem('token');
+      setUser(null);
+    }
   };
 
   useEffect(() => { refreshUser().finally(() => setIsLoading(false)); }, []);

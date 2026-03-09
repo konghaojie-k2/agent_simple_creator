@@ -1,16 +1,26 @@
 # -*- coding: utf-8 -*-
 """FastAPI application entry point."""
 
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from myauth import AuthFramework
+from loguru import logger
 
 from agent_builder.core.config import settings
 from agent_builder.core.database import init_db
 from agent_builder.myauth_integration.auth import get_current_user
+
+# 配置 loguru
+logger.remove()
+logger.add(
+    sys.stderr,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+    level="DEBUG",
+)
 
 # Import routes after app is created to avoid circular imports
 from agent_builder.api.routes import agents, chat, providers, experiments
@@ -79,7 +89,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

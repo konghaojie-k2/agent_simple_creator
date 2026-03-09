@@ -5,13 +5,13 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
 from agent_builder.core.database import get_db
 from agent_builder.db.models import Agent
 from agent_builder.myauth_integration.auth import get_current_user
 from agent_builder.schemas.pydantic import AgentCreate, AgentResponse, AgentUpdate, AgentDetailResponse, ToolInfo, SkillInfo, AgentDirectoryInfo
-from agent_builder.services.agent_service import AgentService
-
+from agent_builder.services.agent.agent_service import AgentService
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -27,7 +27,7 @@ async def create_agent(
     agent = await service.create_agent(user_id, agent_data)
 
     # 初始化Agent目录结构（无工作空间）
-    from agent_builder.services.agent_initializer import get_agent_initializer
+    from agent_builder.services.agent.agent_initializer import get_agent_initializer
     initializer = get_agent_initializer()
     dirs = initializer.initialize_agent_directories(
         user_id=user_id,
@@ -52,8 +52,10 @@ async def get_agents(
     user_id: str = Depends(get_current_user),
 ):
     """Get all agents for the current user."""
+    logger.info(f"Getting agents for user: {user_id}")
     service = AgentService(db)
     agents = await service.get_agents(user_id)
+    logger.info(f"Found {len(agents)} agents for user {user_id}")
     return agents
 
 
@@ -131,18 +133,18 @@ async def get_agent_detail(
         )
 
     # 2. Get directory structure（新架构：Agent无工作空间）
-    from agent_builder.services.agent_initializer import get_agent_initializer
+    from agent_builder.services.agent.agent_initializer import get_agent_initializer
     initializer = get_agent_initializer()
     dirs = initializer.get_agent_directories(user_id, agent_id)
 
     # 3. Get available tools
-    from agent_builder.services.tool_registry import get_tool_registry
+    from agent_builder.services.core.tool_registry import get_tool_registry
     tool_registry = get_tool_registry()
     tool_names = tool_registry.list_tools()
     tools = [ToolInfo(name=name, description=f"Built-in tool: {name}") for name in tool_names]
 
     # 4. Get available skills
-    from agent_builder.services.skill_system import AgentSkillSystem
+    from agent_builder.services.market.skills.skill_system import AgentSkillSystem
     skill_system = AgentSkillSystem(
         user_id=user_id,
         agent_id=agent_id,

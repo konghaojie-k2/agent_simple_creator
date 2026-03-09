@@ -13,7 +13,16 @@
       "Bash(uv run:*)",
       "Bash(dir C:\\\\Users\\\\17625\\\\Documents\\\\GitHub\\\\clawdbot\\\\docs\\\\reference\\\\templates:*)",
       "Bash(git:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(uv pip:*)",
+      "Bash(ping:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell:*)",
+      "Bash(npx tsc:*)",
+      "Bash(dir C:\\\\CODE\\\\agent_simple_creator\\\\backend\\\\market\\\\skills\\\\public:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)"
     ]
   }
 }

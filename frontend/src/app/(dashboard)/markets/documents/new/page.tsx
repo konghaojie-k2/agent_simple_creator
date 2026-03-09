@@ -3,11 +3,11 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { skillsApi } from '@/lib/api'
+import { documentsApi } from '@/lib/api'
 
 type CreateMethod = 'upload' | 'external' | null
 
-export default function NewSkillPage() {
+export default function NewDocumentPage() {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [createMethod, setCreateMethod] = useState<CreateMethod>(null)
@@ -15,7 +15,7 @@ export default function NewSkillPage() {
   const [dragActive, setDragActive] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('custom')
+  const [category, setCategory] = useState('documentation')
   const [tags, setTags] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -36,7 +36,7 @@ export default function NewSkillPage() {
 
   const handleFileSelect = (file: File) => {
     // 验证文件类型
-    const allowedExtensions = ['.json', '.yaml', '.yml', '.txt', '.md']
+    const allowedExtensions = ['.md', '.txt', '.html', '.json']
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
 
     if (!allowedExtensions.includes(ext)) {
@@ -64,17 +64,18 @@ export default function NewSkillPage() {
 
     setUploading(true)
     try {
-      await skillsApi.upload(selectedFile, {
+      await documentsApi.upload(selectedFile, {
         name: name.trim(),
-        description: description.trim() || undefined,
+        doc_type: 'markdown', // will be auto-detected by backend
         category: category,
+        description: description.trim() || undefined,
         tags: tags.trim() || undefined,
         is_public: isPublic,
       })
-      router.push('/markets/skills')
+      router.push('/markets/documents')
     } catch (error) {
-      console.error('Failed to upload skill:', error)
-      alert('Failed to upload skill. Please try again.')
+      console.error('Failed to upload document:', error)
+      alert('Failed to upload document. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -111,10 +112,10 @@ export default function NewSkillPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
         <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-purple-100">
-          <div className="max-w-2xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4">
               <Link
-                href="/markets/skills"
+                href="/markets/documents"
                 className="p-2 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
               >
                 <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,17 +124,17 @@ export default function NewSkillPage() {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                  Create Skill
+                  Create Document
                 </h1>
-                <p className="text-sm text-gray-500">Add a new reusable skill</p>
+                <p className="text-sm text-gray-500">Add a reference document for experiments</p>
               </div>
             </div>
           </div>
         </header>
 
-        <main className="max-w-2xl mx-auto py-6 sm:px-6 lg:px-8">
+        <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 sm:px-0 space-y-4">
-            <p className="text-gray-600 mb-6">Choose how you want to create a new skill:</p>
+            <p className="text-gray-600 mb-6">Choose how you want to create a new document:</p>
 
             {/* Upload File */}
             <button
@@ -148,7 +149,7 @@ export default function NewSkillPage() {
                 </div>
                 <div>
                   <div className="font-semibold text-gray-900">Upload File</div>
-                  <div className="text-sm text-gray-500">Upload a JSON, YAML, TXT, or Markdown file</div>
+                  <div className="text-sm text-gray-500">Upload a Markdown, Text, HTML, or JSON file</div>
                 </div>
               </div>
             </button>
@@ -184,7 +185,7 @@ export default function NewSkillPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
       <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-purple-100">
-        <div className="max-w-2xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <button
               onClick={handleBack}
@@ -196,15 +197,15 @@ export default function NewSkillPage() {
             </button>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Upload Skill
+                Upload Document
               </h1>
-              <p className="text-sm text-gray-500">Upload a file to create a skill</p>
+              <p className="text-sm text-gray-500">Upload a file to create a document</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0 space-y-6">
           {/* 文件拖拽区域 */}
           <div className="bg-white rounded-xl shadow-sm border border-purple-100 p-6">
@@ -235,12 +236,12 @@ export default function NewSkillPage() {
                   Browse Files
                 </button>
                 <p className="mt-2 text-xs text-gray-500">
-                  Supported: .json, .yaml, .yml, .txt, .md
+                  Supported: .md, .txt, .html, .json
                 </p>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".json,.yaml,.yml,.txt,.md"
+                  accept=".md,.txt,.html,.json"
                   onChange={handleFileInputChange}
                   className="hidden"
                 />
@@ -280,7 +281,7 @@ export default function NewSkillPage() {
                   value={name}
                   onChange={e => setName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="My Skill"
+                  placeholder="My Document"
                 />
               </div>
               <div>
@@ -290,31 +291,34 @@ export default function NewSkillPage() {
                   onChange={e => setDescription(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   rows={3}
-                  placeholder="What does this skill do?"
+                  placeholder="Brief description of this document"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={category}
-                  onChange={e => setCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                >
-                  <option value="tool">Tool</option>
-                  <option value="prompt">Prompt</option>
-                  <option value="template">Template</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-                <input
-                  type="text"
-                  value={tags}
-                  onChange={e => setTags(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="tag1, tag2"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="documentation">Documentation</option>
+                    <option value="api_reference">API Reference</option>
+                    <option value="tutorial">Tutorial</option>
+                    <option value="guide">Guide</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                  <input
+                    type="text"
+                    value={tags}
+                    onChange={e => setTags(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="tag1, tag2"
+                  />
+                </div>
               </div>
               <label className="flex items-center gap-3">
                 <input
@@ -323,7 +327,7 @@ export default function NewSkillPage() {
                   onChange={e => setIsPublic(e.target.checked)}
                   className="text-purple-600 focus:ring-purple-500 rounded"
                 />
-                <span className="text-sm text-gray-700">Make this skill public</span>
+                <span className="text-sm text-gray-700">Make this document public</span>
               </label>
             </div>
           </div>
@@ -331,7 +335,7 @@ export default function NewSkillPage() {
           {/* 提交按钮 */}
           <div className="flex justify-end gap-3">
             <Link
-              href="/markets/skills"
+              href="/markets/documents"
               className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
             >
               Cancel

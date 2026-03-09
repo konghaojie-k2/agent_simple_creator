@@ -18,13 +18,13 @@ from agent_builder.schemas.execution import (
     ExecutionStatus, ExecutionStep, ExecutionContext,
     ExecutionResult, PlanStep
 )
-from agent_builder.services.experience_service import ExperienceService
-from agent_builder.services.skill_service import SkillService
-from agent_builder.services.mcp_client_manager import MCPClientManager
-from agent_builder.services.tool_registry import get_tool_registry
-from agent_builder.services.experience_manager import get_experience_manager
-from agent_builder.services.skill_system import AgentSkillSystem
-from agent_builder.services.prompt_builder import get_prompt_builder
+from agent_builder.services.core.experience_service import ExperienceService
+from agent_builder.services.market.skills.skill_service import SkillService
+from agent_builder.services.core.mcp_client_manager import MCPClientManager
+from agent_builder.services.core.tool_registry import get_tool_registry
+from agent_builder.services.core.experience_manager import get_experience_manager
+from agent_builder.services.market.skills.skill_system import AgentSkillSystem
+from agent_builder.services.core.prompt_builder import get_prompt_builder
 
 
 class ExperimentEngine:
@@ -90,7 +90,7 @@ class ExperimentEngine:
         skill_prompt = skill_system.get_system_prompt()
 
         # 3. 设置技能系统到工具注册表（用于 get_skill 工具）
-        from agent_builder.services.tool_registry import get_tool_registry
+        from agent_builder.services.core.tool_registry import get_tool_registry
         tool_registry = get_tool_registry()
         tool_registry.set_skill_system(skill_system)
         available_tools = tool_registry.list_tools()
@@ -133,10 +133,15 @@ class ExperimentEngine:
 
             duration_ms = int((time.time() - start_time) * 1000)
 
+            # 安全获取输出，处理 output_data 为 None 的情况
+            output_content = None
+            if context.steps and context.steps[-1].output_data:
+                output_content = context.steps[-1].output_data.get("content")
+
             return ExecutionResult(
                 success=execution_success,
                 status=final_status,
-                output=context.steps[-1].output_data.get("content") if context.steps else None,
+                output=output_content,
                 duration_ms=duration_ms,
                 steps_executed=len(context.steps),
                 experience_id=experience_id
@@ -341,7 +346,7 @@ class ExperimentEngine:
         2. 如果没有，去技能超市发现并加载
         3. 执行并记录结果
         """
-        from agent_builder.services.skill_service import SkillService
+        from agent_builder.services.market.skills.skill_service import SkillService
 
         plan = context.plan
         steps = plan.get("steps", [])
@@ -451,7 +456,19 @@ class ExperimentEngine:
                 return False
 
             execution_step.duration_ms = int((time.time() - step_start) * 1000)
+
+            # 检查结果状态，如果返回 capability_missing 则标记为失败
+            if execution_step.output_data:
+                result_data = execution_step.output_data.get("result", {})
+                if isinstance(result_data, dict) and result_data.get("status") == "capability_missing":
+                    execution_step.status = "failed"
+                    execution_step.error_message = f"Missing capability: {result_data.get('missing_capability', 'unknown')}"
+
             context.steps.append(execution_step)
+
+            # 如果步骤失败，立即返回
+            if execution_step.status == "failed":
+                return False
 
         return True
 
@@ -624,7 +641,7 @@ class ExperimentEngine:
         2. 提取关键教训
         3. 创建经验记录
         """
-        from agent_builder.services.skill_service import SkillService
+        from agent_builder.services.market.skills.skill_service import SkillService
 
         # 构建经验内容
         exp_type = "success" if execution_success else "failure"
@@ -1051,7 +1068,7 @@ class MultiAgentExperimentEngine(ExperimentEngine):
         message: Dict[str, Any]
     ):
         """保存 Agent 间通信消息"""
-        from agent_builder.services.experiment_workspace import get_experiment_workspace
+        from agent_builder.services.experiment.experiment_workspace import get_experiment_workspace
 
         workspace = get_experiment_workspace()
         workspace.save_agent_message(

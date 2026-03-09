@@ -124,17 +124,22 @@ class AgentSkillSystem:
         self,
         user_id: str,
         agent_id: str,
-        shared_skills_dir: str = "./skills",
+        shared_skills_dir: str = "./market/skills",
         workspaces_dir: str = "./workspaces"
     ):
         self.user_id = user_id
         self.agent_id = agent_id
 
         # 多个技能来源
-        self.shared_loader = SkillLoader(shared_skills_dir)
+        # 1. 公开共享技能 (market/skills/public)
+        self.public_loader = SkillLoader(f"{shared_skills_dir}/public")
+        # 2. 私有共享技能 (market/skills/private) - 只有登录用户可用
+        self.private_loader = SkillLoader(f"{shared_skills_dir}/private")
+        # 3. Agent专属技能 (workspaces/{user}/{agent}/skills)
         self.agent_loader = SkillLoader(
             f"{workspaces_dir}/{user_id}/{agent_id}/skills"
         )
+        # 4. 经验沉淀 (workspaces/{user}/{agent}/experiences)
         self.experience_loader = SkillLoader(
             f"{workspaces_dir}/{user_id}/{agent_id}/experiences"
         )
@@ -144,7 +149,8 @@ class AgentSkillSystem:
 
     def _load_all_skills(self):
         """加载所有来源的技能"""
-        self.shared_loader.discover_skills()
+        self.public_loader.discover_skills()
+        self.private_loader.discover_skills()
         self.agent_loader.discover_skills()
         self.experience_loader.discover_skills()
 
@@ -155,10 +161,15 @@ class AgentSkillSystem:
         """
         parts = []
 
-        # 共享技能
-        shared_prompt = self.shared_loader.get_metadata_prompt()
-        if shared_prompt:
-            parts.append(shared_prompt)
+        # 公开共享技能
+        public_prompt = self.public_loader.get_metadata_prompt()
+        if public_prompt:
+            parts.append(public_prompt)
+
+        # 私有共享技能
+        private_prompt = self.private_loader.get_metadata_prompt()
+        if private_prompt:
+            parts.append(private_prompt)
 
         # Agent 专属技能
         agent_prompt = self.agent_loader.get_metadata_prompt()
@@ -177,7 +188,7 @@ class AgentSkillSystem:
     def get_skill(self, name: str) -> Optional[Skill]:
         """
         Level 2: 获取技能完整内容
-        按优先级搜索：经验 > Agent技能 > 共享技能
+        按优先级搜索：经验 > Agent技能 > 私有共享 > 公开共享
         """
         # 1. 先搜索经验
         skill = self.experience_loader.get_skill(name)
@@ -189,13 +200,19 @@ class AgentSkillSystem:
         if skill:
             return skill
 
-        # 3. 最后搜索共享技能
-        return self.shared_loader.get_skill(name)
+        # 3. 搜索私有共享技能
+        skill = self.private_loader.get_skill(name)
+        if skill:
+            return skill
+
+        # 4. 最后搜索公开共享技能
+        return self.public_loader.get_skill(name)
 
     def list_all_skills(self) -> List[str]:
         """列出所有可用技能"""
         skills = set()
-        skills.update(self.shared_loader.list_skills())
+        skills.update(self.public_loader.list_skills())
+        skills.update(self.private_loader.list_skills())
         skills.update(self.agent_loader.list_skills())
         skills.update(self.experience_loader.list_skills())
         return sorted(list(skills))

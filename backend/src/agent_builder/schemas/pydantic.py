@@ -208,8 +208,13 @@ class ExperimentRunRequest(BaseModel):
 class ExperimentParticipantBase(BaseModel):
     """Base experiment participant schema."""
     agent_id: str = Field(..., description="Agent ID")
-    role: str = Field("worker", description="Participant role: leader, worker, reviewer, observer")
+    role: str = Field("worker", description="Participant role: leader, worker, reviewer, observer, supervisor, manager")
     join_order: int = Field(0, description="Execution order (for sequential mode)")
+
+    # ===== 新增：Agent 关系配置 =====
+    depends_on: List[str] = Field(default_factory=list, description="List of agent IDs this agent depends on")
+    message_to: Optional[str] = Field(None, description="Message routing: to_single, to_group, to_all, to_parent, to_children")
+    parent_id: Optional[str] = Field(None, description="Parent agent ID (for hierarchical mode)")
     config: Dict[str, Any] = Field(default_factory=dict, description="Additional config")
 
 
@@ -225,6 +230,9 @@ class ExperimentParticipantResponse(ExperimentParticipantBase):
     user_id: str
     status: str
     created_at: datetime
+    depends_on: Optional[List[str]] = None
+    message_to: Optional[str] = None
+    parent_id: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -359,6 +367,7 @@ class DocumentResponse(DocumentBase):
     """Schema for document response."""
     id: str
     user_id: str
+    source: str = Field("database", description="Source: database or filesystem")
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -410,6 +419,7 @@ class DatasetResponse(DatasetBase):
     """Schema for dataset response."""
     id: str
     user_id: str
+    source: str = Field("database", description="Source: database or filesystem")
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -454,6 +464,7 @@ class SkillResponse(SkillBase):
     id: str
     user_id: str
     usage_count: int = Field(0, description="Usage count")
+    source: str = Field("database", description="Source: database or filesystem")
     created_at: datetime
     updated_at: Optional[datetime]
 

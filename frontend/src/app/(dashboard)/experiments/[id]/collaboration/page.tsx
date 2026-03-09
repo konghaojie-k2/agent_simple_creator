@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { type Experiment, type ExperimentParticipant, type AgentMessage, type CollaborationType } from "@/types"
@@ -19,6 +19,51 @@ export default function CollaborationExperimentDetailsPage() {
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
+
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+
+  // 轮询获取实验状态
+  const startPolling = () => {
+    if (pollingRef.current) return
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        await fetchExperiment()
+        await fetchMessages()
+
+        // 如果实验完成，停止轮询
+        if (experiment?.status === 'success' || experiment?.status === 'failed') {
+          stopPolling()
+          setRunning(false)
+        }
+      } catch (error) {
+        console.error('Polling error:', error)
+      }
+    }, 2000)
+  }
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+  }
+
+  // 组件卸载时停止轮询
+  useEffect(() => {
+    return () => {
+      stopPolling()
+    }
+  }, [])
+
+  // 监听实验状态，自动开始/停止轮询
+  useEffect(() => {
+    if (experiment?.status === 'running') {
+      startPolling()
+    } else {
+      stopPolling()
+    }
+  }, [experiment?.status])
 
   useEffect(() => {
     if (user && experimentId) {
@@ -96,19 +141,23 @@ export default function CollaborationExperimentDetailsPage() {
       })
 
       if (response.ok) {
-        // Refresh data
+        // 立即开始轮询
+        startPolling()
+        // 立即刷新一次数据
         await fetchExperiment()
         await fetchParticipants()
         await fetchMessages()
       } else {
         const error = await response.json()
         alert(`运行失败: ${error.detail || "未知错误"}`)
+        setRunning(false)
+        stopPolling()
       }
     } catch (error) {
       console.error("Failed to run experiment:", error)
       alert("运行失败，请检查网络连接")
-    } finally {
       setRunning(false)
+      stopPolling()
     }
   }
 

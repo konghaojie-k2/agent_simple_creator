@@ -101,6 +101,31 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 3. **myauth Integration**: Auth integrated from `C:\Users\17625\Documents\GitHub\my-auth`
 4. **API Keys**: Stored encrypted using Fernet in the database
 5. **Async**: Use `async/await` for all database and HTTP operations
+6. **Logging**: Use `loguru` for logging, not the standard `logging` module
+
+## 日志规范 (Logging)
+
+项目使用 `loguru` 库进行日志记录：
+
+```python
+from loguru import logger
+
+# 基本使用
+logger.debug("调试信息")
+logger.info("一般信息")
+logger.warning("警告信息")
+logger.error("错误信息")
+
+# 配置 (在 main.py 中)
+logger.remove()
+logger.add(
+    sys.stderr,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
+    level="DEBUG",
+)
+```
+
+**注意**: 不要使用标准库的 `logging` 模块，统一使用 `loguru`。
 
 ## Additional Guidelines
 

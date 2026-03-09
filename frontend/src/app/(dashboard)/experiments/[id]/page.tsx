@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { experimentsApi, agentsApi, experiencesApi } from '@/lib/api'
@@ -8,6 +8,10 @@ import { Experiment, Agent, ExperimentExperience } from '@/types'
 
 const statusColors = {
   pending: 'bg-gray-100 text-gray-800',
+  sense: 'bg-yellow-100 text-yellow-800',
+  plan: 'bg-orange-100 text-orange-800',
+  act: 'bg-blue-100 text-blue-800',
+  reflect: 'bg-purple-100 text-purple-800',
   running: 'bg-blue-100 text-blue-800',
   success: 'bg-green-100 text-green-800',
   failed: 'bg-red-100 text-red-800',
@@ -19,6 +23,16 @@ const typeLabels = {
   problem_solving: 'Problem Solving',
   data_analysis: 'Data Analysis',
   custom: 'Custom',
+}
+
+const phaseLabels: Record<string, string> = {
+  pending: 'Pending',
+  sense: 'Sensing',
+  plan: 'Planning',
+  act: 'Executing',
+  reflect: 'Reflecting',
+  success: 'Completed',
+  failed: 'Failed',
 }
 
 export default function ExperimentDetailPage() {
@@ -38,9 +52,57 @@ export default function ExperimentDetailPage() {
     improvements: '',
   })
 
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+
+  // 轮询获取实验状态
+  const startPolling = () => {
+    if (pollingRef.current) return
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const expData = await experimentsApi.get(experimentId)
+        setExperiment(expData)
+
+        // 如果实验完成，停止轮询
+        if (expData.status === 'success' || expData.status === 'failed') {
+          stopPolling()
+          setRunning(false)
+          // 刷新经验列表
+          const expList = await experiencesApi.list({ experiment_id: experimentId })
+          setExperiences(expList)
+        }
+      } catch (error) {
+        console.error('Polling error:', error)
+      }
+    }, 2000) // 每2秒轮询一次
+  }
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+  }
+
+  // 组件卸载时停止轮询
+  useEffect(() => {
+    return () => {
+      stopPolling()
+    }
+  }, [])
+
   useEffect(() => {
     loadData()
   }, [experimentId])
+
+  // 监听实验状态，自动开始/停止轮询
+  useEffect(() => {
+    if (experiment?.status === 'running' || experiment?.status === 'sense' || experiment?.status === 'plan' || experiment?.status === 'act' || experiment?.status === 'reflect') {
+      startPolling()
+    } else {
+      stopPolling()
+    }
+  }, [experiment?.status])
 
   const loadData = async () => {
     try {
@@ -66,11 +128,14 @@ export default function ExperimentDetailPage() {
     setRunning(true)
     try {
       await experimentsApi.run(experimentId)
+      // 立即开始轮询
+      startPolling()
+      // 立即刷新一次数据
       await loadData()
     } catch (error) {
       console.error('Failed to run experiment:', error)
-    } finally {
       setRunning(false)
+      stopPolling()
     }
   }
 
@@ -144,8 +209,17 @@ export default function ExperimentDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* 进度阶段指示器 */}
+              {(experiment.status === 'running' || experiment.status === 'sense' || experiment.status === 'plan' || experiment.status === 'act' || experiment.status === 'reflect') && (
+                <div className="flex items-center gap-1 mr-2">
+                  <div className={`w-2 h-2 rounded-full ${experiment.status === 'sense' ? 'bg-yellow-500 animate-pulse' : experiment.status === 'plan' ? 'bg-orange-500 animate-pulse' : experiment.status === 'act' ? 'bg-blue-500 animate-pulse' : experiment.status === 'reflect' ? 'bg-purple-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${experiment.status === 'plan' || experiment.status === 'act' || experiment.status === 'reflect' ? 'bg-orange-500 animate-pulse' : experiment.status === 'sense' ? 'bg-gray-300' : 'bg-gray-300'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${experiment.status === 'act' || experiment.status === 'reflect' ? 'bg-blue-500 animate-pulse' : ['sense', 'plan'].includes(experiment.status) ? 'bg-gray-300' : 'bg-gray-300'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${experiment.status === 'reflect' ? 'bg-purple-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                </div>
+              )}
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[experiment.status as keyof typeof statusColors]}`}>
-                {experiment.status}
+                {phaseLabels[experiment.status] || experiment.status}
               </span>
             </div>
           </div>

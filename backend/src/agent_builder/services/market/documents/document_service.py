@@ -27,7 +27,15 @@ class DocumentService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.workspaces_dir = Path("./workspaces")
+        # market 目录：存放共享的文档/数据集/技能
+        self.market_root = Path(__file__).parent.parent.parent.parent / "market" / "documents"
+
+    def _get_doc_dir(self, user_id: str, doc_id: str, is_public: bool = False) -> Path:
+        """获取文档存储目录（根据是否公开选择public或private）"""
+        visibility = "public" if is_public else "private"
+        doc_dir = self.market_root / visibility / user_id / doc_id
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        return doc_dir
 
     async def create_document(
         self,
@@ -151,13 +159,72 @@ class DocumentService:
         )
         return list(result.scalars().all())
 
+    async def list_documents_by_visibility(
+        self,
+        user_id: str,
+        is_public: Optional[bool] = None,
+        doc_type: Optional[str] = None,
+        category: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Document]:
+        """按可见性列出文档"""
+        from sqlalchemy import and_, or_
+
+        conditions = [
+            or_(
+                Document.user_id == user_id,
+                Document.is_public == True
+            )
+        ]
+
+        if is_public is not None:
+            conditions.append(Document.is_public == is_public)
+
+        if doc_type:
+            conditions.append(Document.doc_type == doc_type)
+
+        if category:
+            conditions.append(Document.category == category)
+
+        if tags:
+            for tag in tags:
+                conditions.append(Document.tags.contains([tag]))
+
+        query = select(Document).where(and_(*conditions)).order_by(
+            Document.created_at.desc()
+        ).limit(limit).offset(offset)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def update_document_visibility(
+        self,
+        doc_id: str,
+        user_id: str,
+        is_public: bool
+    ) -> Optional[Document]:
+        """更新文档可见性（私有<->公共转换）"""
+        doc = await self.get_document(doc_id, user_id)
+        if not doc:
+            return None
+
+        # 只有文档所有者可以修改可见性
+        if doc.user_id != user_id and doc.source != "filesystem":
+            return None
+
+        doc.is_public = is_public
+        await self.db.commit()
+        await self.db.refresh(doc)
+        return doc
+        return list(result.scalars().all())
+
     # ==================== 文件存储辅助方法 ====================
 
-    def get_document_file_path(self, user_id: str, doc_id: str) -> Path:
-        """获取文档文件存储路径"""
-        doc_dir = self.workspaces_dir / user_id / "documents" / doc_id
-        doc_dir.mkdir(parents=True, exist_ok=True)
-        return doc_dir
+    def get_document_file_path(self, user_id: str, doc_id: str, is_public: bool = False) -> Path:
+        """获取文档文件存储路径（根据是否公开选择public或private目录）"""
+        return self._get_doc_dir(user_id, doc_id, is_public)
 
     async def save_document_file(
         self,
@@ -179,10 +246,15 @@ class DocumentService:
         filename: str,
     ) -> Optional[bytes]:
         """读取文档文件"""
-        doc_dir = self.workspaces_dir / user_id / "documents" / doc_id
+        # 先获取文档的公开状态
+        doc = await self.get_document(doc_id, user_id)
+        if not doc:
+            return None
+        doc_dir = self._get_doc_dir(user_id, doc_id, doc.is_public)
         file_path = doc_dir / filename
         if file_path.exists():
             return file_path.read_bytes()
+        return None
         return None
 
 

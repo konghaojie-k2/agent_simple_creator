@@ -18,8 +18,8 @@ from agent_builder.schemas.skill import (
     SkillExecuteResponse,
     AgentSkillResponse,
 )
-from agent_builder.services.skill_service import SkillService
-from agent_builder.services.mcp_client_manager import MCPClientManager
+from agent_builder.services.market.skills.skill_service import SkillService
+from agent_builder.services.core.mcp_client_manager import MCPClientManager
 
 
 router = APIRouter(prefix="/api/agents/{agent_id}/skills", tags=["agent-skills"])

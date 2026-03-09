@@ -24,7 +24,7 @@ from agent_builder.schemas.pydantic import (
     ExperimentParticipantResponse,
 )
 from agent_builder.schemas.execution import ExecutionResult
-from agent_builder.services.experiment_service import (
+from agent_builder.services.experiment.experiment_service import (
     ExperimentService,
     ExperimentTemplateService,
     ExperimentExperienceService,
@@ -126,10 +126,10 @@ async def run_experiment(
     user_id: str = Depends(get_current_user),
 ):
     """运行实验（执行完整的 Sense-Plan-Act-Reflect 循环）"""
-    from agent_builder.services.experiment_engine import ExperimentEngine
-    from agent_builder.services.experience_service import ExperienceService
-    from agent_builder.services.skill_service import SkillService
-    from agent_builder.services.mcp_client_manager import MCPClientManager
+    from agent_builder.services.experiment.experiment_engine import ExperimentEngine
+    from agent_builder.services.core.experience_service import ExperienceService
+    from agent_builder.services.market.skills.skill_service import SkillService
+    from agent_builder.services.core.mcp_client_manager import MCPClientManager
 
     # 获取实验
     result = await db.execute(
@@ -364,7 +364,7 @@ async def list_user_experiences(
             detail="Not authorized to access other users' experiences",
         )
 
-    from agent_builder.services.experience_service import ExperienceService
+    from agent_builder.services.core.experience_service import ExperienceService
 
     service = ExperienceService(db)
     experiences = await service.list_user_experiences(
@@ -439,10 +439,10 @@ async def run_collaboration_experiment(
     user_id: str = Depends(get_current_user),
 ):
     """运行多Agent协作实验"""
-    from agent_builder.services.experiment_engine import MultiAgentExperimentEngine
-    from agent_builder.services.experience_service import ExperienceService
-    from agent_builder.services.skill_service import SkillService
-    from agent_builder.services.mcp_client_manager import MCPClientManager
+    from agent_builder.services.experiment.experiment_engine import MultiAgentExperimentEngine
+    from agent_builder.services.core.experience_service import ExperienceService
+    from agent_builder.services.market.skills.skill_service import SkillService
+    from agent_builder.services.core.mcp_client_manager import MCPClientManager
     from agent_builder.db.models import Experiment
 
     # 获取实验
@@ -522,7 +522,7 @@ async def get_collaboration_messages(
 ):
     """获取协作实验的 Agent 间通信消息"""
     from agent_builder.db.models import Experiment
-    from agent_builder.services.experiment_workspace import get_experiment_workspace
+    from agent_builder.services.experiment.experiment_workspace import get_experiment_workspace
 
     # 验证实验权限
     exp_result = await db.execute(

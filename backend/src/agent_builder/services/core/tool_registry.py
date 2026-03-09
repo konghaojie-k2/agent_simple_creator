@@ -10,7 +10,7 @@ import os
 import uuid
 from typing import Dict, Any, Callable, Awaitable, Optional, List
 from datetime import datetime
-from agent_builder.services.code_sandbox import CodeExecutionSandbox
+from agent_builder.services.core.code_sandbox import CodeExecutionSandbox
 
 
 class TodoItem:
@@ -576,7 +576,7 @@ class ToolRegistry:
             经验列表
         """
         try:
-            from agent_builder.services.experience_service import ExperienceService
+            from agent_builder.services.core.experience_service import ExperienceService
 
             # 这里需要AsyncSession，临时创建或者从外部注入
             # 由于工具注册表的设计，我们返回一个说明，实际查询应在服务层完成

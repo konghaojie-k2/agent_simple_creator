@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from agent_builder.db.models import Agent, Experience, UserSoul
-from agent_builder.services.experience_service import ExperienceService
+from agent_builder.services.core.experience_service import ExperienceService
 
 
 class PromptBuilder:
@@ -256,6 +256,10 @@ class PromptBuilder:
                 parts.append(f"{key}: {str(value)[:100]}")
 
         return "\n".join(parts) if parts else None
+
+    def _format_section(self, title: str, content: str) -> str:
+        """格式化提示词章节"""
+        return f"## {title}\n\n{content}"
 
     async def _build_soul_section(self, user_id: str) -> Optional[str]:
         """

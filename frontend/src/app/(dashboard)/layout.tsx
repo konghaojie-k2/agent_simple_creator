@@ -9,6 +9,9 @@ import { useAuth } from '@/contexts/AuthContext';
 const navItems = [
   { href: '/agents', label: 'Agents' },
   { href: '/providers', label: 'Providers' },
+  { href: '/markets/documents', label: 'Doc Market' },
+  { href: '/markets/data', label: 'Data Market' },
+  { href: '/markets/skills', label: 'Skill Market' },
   { href: '/experiments', label: 'Experiments' },
   { href: '/templates', label: 'Templates' },
 ];

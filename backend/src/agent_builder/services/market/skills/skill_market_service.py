@@ -8,12 +8,15 @@ Skill Service - 技能市场服务
 - 创建/更新/删除技能
 - 技能分类和标签
 - 技能复用统计
+- 文件系统技能同步
 """
 
 import uuid
+import re
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_builder.db.models import Skill, SkillCategory
@@ -169,3 +172,137 @@ class SkillService:
         skill.usage_count += 1
         await self.db.commit()
         return True
+
+    async def sync_filesystem_skills(self, public_dir: str = "./market/skills/public") -> int:
+        """
+        同步文件系统中的公共技能到数据库
+
+        Args:
+            public_dir: 公共技能目录路径
+
+        Returns:
+            同步的技能数量
+        """
+        import yaml
+
+        public_path = Path(public_dir)
+        if not public_path.exists():
+            return 0
+
+        synced_count = 0
+
+        # 遍历公共技能目录
+        for skill_dir in public_path.iterdir():
+            if not skill_dir.is_dir() or skill_dir.name.startswith("."):
+                continue
+
+            skill_md = skill_dir / "SKILL.md"
+            if not skill_md.exists():
+                continue
+
+            try:
+                # 读取并解析 SKILL.md
+                content = skill_md.read_text(encoding="utf-8")
+                frontmatter_match = re.match(r"---\n(.*?)\n---\n(.*)$", content, re.DOTALL)
+                if not frontmatter_match:
+                    continue
+
+                frontmatter = yaml.safe_load(frontmatter_match.group(1))
+                skill_content = frontmatter_match.group(2).strip()
+
+                # 检查是否已存在（根据名称和来源）
+                existing = await self.db.execute(
+                    select(Skill).where(
+                        and_(
+                            Skill.name == frontmatter.get("name", skill_dir.name),
+                            Skill.source == "filesystem"
+                        )
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    continue  # 已存在，跳过
+
+                # 创建技能记录
+                skill = Skill(
+                    id=str(uuid.uuid4()),
+                    user_id="system",  # 系统预置
+                    name=frontmatter.get("name", skill_dir.name),
+                    description=frontmatter.get("description", ""),
+                    category=frontmatter.get("category", "custom"),
+                    content=skill_content,
+                    content_type="text",
+                    parameters_schema=frontmatter.get("parameters", {}),
+                    tags=frontmatter.get("tags", []),
+                    is_public=True,
+                    source="filesystem",
+                    extra_metadata={
+                        "skill_dir": str(skill_dir),
+                        "original_name": skill_dir.name
+                    }
+                )
+                self.db.add(skill)
+                synced_count += 1
+
+            except Exception as e:
+                print(f"Failed to sync skill {skill_dir.name}: {e}")
+                continue
+
+        if synced_count > 0:
+            await self.db.commit()
+
+        return synced_count
+
+    async def list_skills_by_visibility(
+        self,
+        user_id: str,
+        is_public: Optional[bool] = None,
+        category: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Skill]:
+        """按可见性列出技能"""
+        # 构建条件：用户自己的 + 公开的
+        conditions = [
+            or_(
+                Skill.user_id == user_id,
+                Skill.is_public == True
+            )
+        ]
+
+        if is_public is not None:
+            conditions.append(Skill.is_public == is_public)
+
+        if category:
+            conditions.append(Skill.category == category)
+
+        if tags:
+            for tag in tags:
+                conditions.append(Skill.tags.contains([tag]))
+
+        query = select(Skill).where(and_(*conditions)).order_by(
+            Skill.created_at.desc()
+        ).limit(limit).offset(offset)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def update_skill_visibility(
+        self,
+        skill_id: str,
+        user_id: str,
+        is_public: bool
+    ) -> Optional[Skill]:
+        """更新技能可见性（私有<->公共转换）"""
+        skill = await self.get_skill(skill_id, user_id)
+        if not skill:
+            return None
+
+        # 只有技能所有者可以修改可见性
+        if skill.user_id != user_id and skill.source != "filesystem":
+            return None
+
+        skill.is_public = is_public
+        await self.db.commit()
+        await self.db.refresh(skill)
+        return skill

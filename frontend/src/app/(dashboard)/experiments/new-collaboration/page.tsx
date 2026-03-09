@@ -15,6 +15,12 @@ interface Agent {
   model: string
 }
 
+interface ParticipantWithRelations extends ExperimentParticipantCreate {
+  depends_on: string[]
+  message_to?: string
+  parent_id?: string
+}
+
 export default function NewCollaborationExperimentPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
@@ -27,11 +33,14 @@ export default function NewCollaborationExperimentPage() {
   const [experimentDesc, setExperimentDesc] = useState("")
   const [experimentType, setExperimentType] = useState< ExperimentType>("collaboration")
   const [collaborationType, setCollaborationType] = useState< CollaborationType>("sequential")
-  const [participants, setParticipants] = useState<ExperimentParticipantCreate[]>([
-    { agent_id: "", role: "leader", join_order: 0 }
+  const [participants, setParticipants] = useState<ParticipantWithRelations[]>([
+    { agent_id: "", role: "leader", join_order: 0, depends_on: [] }
   ])
   const [maxRounds, setMaxRounds] = useState(3)
-  const [inputData, setInputData] = useState("{}")
+  const [inputData, setInputData] = useState('{"task": ""}')
+
+  // 可选的 Agent 关系模式
+  const [relationMode, setRelationMode] = useState<"none" | "dependency" | "hierarchy">("none")
 
   useEffect(() => {
     if (user) {
@@ -62,7 +71,14 @@ export default function NewCollaborationExperimentPage() {
   const addParticipant = () => {
     setParticipants([
       ...participants,
-      { agent_id: "", role: "worker", join_order: participants.length }
+      {
+        agent_id: "",
+        role: "worker",
+        join_order: participants.length,
+        depends_on: [],
+        message_to: undefined,
+        parent_id: undefined
+      }
     ])
   }
 
@@ -75,10 +91,28 @@ export default function NewCollaborationExperimentPage() {
     }
   }
 
-  const updateParticipant = (index: number, field: keyof ExperimentParticipantCreate, value: string | number) => {
+  const updateParticipant = (index: number, field: keyof ParticipantWithRelations, value: any) => {
     const newParticipants = [...participants]
     ;(newParticipants[index] as any)[field] = value
     setParticipants(newParticipants)
+  }
+
+  // 更新依赖关系
+  const updateDependsOn = (index: number, dependsOnAgentId: string, checked: boolean) => {
+    const newParticipants = [...participants]
+    const currentDeps = newParticipants[index].depends_on || []
+
+    if (checked) {
+      newParticipants[index].depends_on = [...currentDeps, dependsOnAgentId]
+    } else {
+      newParticipants[index].depends_on = currentDeps.filter(id => id !== dependsOnAgentId)
+    }
+    setParticipants(newParticipants)
+  }
+
+  // 获取可选的父级 Agent（除了自己）
+  const getAvailableParents = (index: number) => {
+    return participants.filter((_, i) => i !== index)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,13 +130,27 @@ export default function NewCollaborationExperimentPage() {
         return
       }
 
+      // 准备参与者数据（移除空值）
+      const preparedParticipants = validParticipants.map(p => ({
+        agent_id: p.agent_id,
+        role: p.role,
+        join_order: p.join_order,
+        depends_on: relationMode === "dependency" && p.depends_on ? p.depends_on : [],
+        message_to: p.message_to || undefined,
+        parent_id: relationMode === "hierarchy" && p.parent_id ? p.parent_id : undefined,
+        config: p.config || {}
+      }))
+
       const experimentData = {
         name: experimentName,
         description: experimentDesc,
         experiment_type: experimentType,
         collaboration_type: collaborationType,
-        participants: validParticipants,
-        workflow_config: collaborationType === "debate" ? { max_rounds: maxRounds } : {},
+        participants: preparedParticipants,
+        workflow_config: {
+          ...(collaborationType === "debate" ? { max_rounds: maxRounds } : {}),
+          relation_mode: relationMode
+        },
         input_data: inputData ? JSON.parse(inputData) : {}
       }
 
@@ -139,7 +187,7 @@ export default function NewCollaborationExperimentPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-5xl mx-auto p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">创建多Agent协作实验</h1>
         <p className="text-gray-600 mt-1">配置多个Agent协作完成复杂任务</p>
@@ -190,13 +238,66 @@ export default function NewCollaborationExperimentPage() {
                 <option value="sequential">顺序执行 (Sequential)</option>
                 <option value="parallel">并行执行 (Parallel)</option>
                 <option value="debate">辩论模式 (Debate)</option>
+                <option value="hierarchical">层级模式 (Hierarchical)</option>
               </select>
               <p className="text-sm text-gray-500 mt-1">
                 {collaborationType === "sequential" && "Agent 按顺序依次执行，每个Agent的输出传递给下一个"}
                 {collaborationType === "parallel" && "所有Agent同时执行，最后汇总结果"}
                 {collaborationType === "debate" && "Agent轮流发表观点，进行多轮讨论后达成共识"}
+                {collaborationType === "hierarchical" && "定义 Supervisor → Worker 层级关系，任务分发给下级执行，结果返回给上级汇总"}
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Agent 关系配置 */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Agent 关系配置</h2>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              关系模式
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="relationMode"
+                  value="none"
+                  checked={relationMode === "none"}
+                  onChange={() => setRelationMode("none")}
+                  className="mr-2"
+                />
+                <span className="text-sm">无（使用默认配置）</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="relationMode"
+                  value="dependency"
+                  checked={relationMode === "dependency"}
+                  onChange={() => setRelationMode("dependency")}
+                  className="mr-2"
+                />
+                <span className="text-sm">依赖关系</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="relationMode"
+                  value="hierarchy"
+                  checked={relationMode === "hierarchy"}
+                  onChange={() => setRelationMode("hierarchy")}
+                  className="mr-2"
+                />
+                <span className="text-sm">层级关系</span>
+              </label>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              {relationMode === "none" && "Agent 之间的关系由协作模式决定，不进行额外配置"}
+              {relationMode === "dependency" && "指定每个 Agent 依赖哪些 Agent 的输出，只有依赖的 Agent 完成后才会执行"}
+              {relationMode === "hierarchy" && "定义 Supervisor → Worker 的层级关系，支持任务分发和结果汇总"}
+            </p>
           </div>
         </div>
 
@@ -229,7 +330,7 @@ export default function NewCollaborationExperimentPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Agent *
@@ -259,6 +360,8 @@ export default function NewCollaborationExperimentPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="leader">领导者 (Leader)</option>
+                      <option value="supervisor">Supervisor</option>
+                      <option value="manager">Manager</option>
                       <option value="worker">工作者 (Worker)</option>
                       <option value="reviewer">审核者 (Reviewer)</option>
                       <option value="observer">观察者 (Observer)</option>
@@ -280,6 +383,66 @@ export default function NewCollaborationExperimentPage() {
                     </div>
                   )}
                 </div>
+
+                {/* 依赖关系配置 */}
+                {relationMode === "dependency" && participants.length > 1 && (
+                  <div className="bg-yellow-50 rounded-md p-3">
+                    <label className="block text-sm font-medium text-yellow-800 mb-2">
+                      依赖哪些 Agent（仅当被依赖的 Agent 完成后才开始执行）
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {participants.map((p, depIndex) => {
+                        if (depIndex === index) return null
+                        const agent = agents.find(a => a.id === p.agent_id)
+                        const isChecked = participant.depends_on?.includes(p.agent_id)
+                        return (
+                          <label key={p.agent_id} className="flex items-center bg-white px-2 py-1 rounded border border-yellow-200">
+                            <input
+                              type="checkbox"
+                              checked={isChecked || false}
+                              onChange={(e) => updateDependsOn(index, p.agent_id, e.target.checked)}
+                              className="mr-1"
+                              disabled={!p.agent_id}
+                            />
+                            <span className="text-sm">{agent?.name || `Agent #${depIndex + 1}`}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {participant.depends_on && participant.depends_on.length > 0 && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        当前依赖: {participant.depends_on.map(id => agents.find(a => a.id === id)?.name || id).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 层级关系配置 */}
+                {relationMode === "hierarchy" && participants.length > 1 && (
+                  <div className="bg-purple-50 rounded-md p-3">
+                    <label className="block text-sm font-medium text-purple-800 mb-2">
+                      上级 Agent（仅用于层级模式）
+                    </label>
+                    <select
+                      value={participant.parent_id || ""}
+                      onChange={(e) => updateParticipant(index, "parent_id", e.target.value || undefined)}
+                      className="w-full px-3 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">无（顶级 Agent）</option>
+                      {getAvailableParents(index).map((p) => {
+                        const agent = agents.find(a => a.id === p.agent_id)
+                        return (
+                          <option key={p.agent_id} value={p.agent_id}>
+                            {agent?.name || `Agent #${participants.indexOf(p) + 1}`}
+                          </option>
+                        )
+                      })}
+                    </select>
+                    <p className="text-xs text-purple-600 mt-1">
+                      选择上级 Agent 后，任务将分发给下级执行，结果返回给上级汇总
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

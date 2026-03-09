@@ -72,12 +72,17 @@ class AgentInitializer:
         """
         agent_dir = self._get_agent_dir(user_id, agent_id)
 
-        # 创建子目录（只存储身份和能力）
+        # 确保workspaces根目录存在
+        self.workspaces_dir.mkdir(parents=True, exist_ok=True)
+
+        # 创建子目录（身份、能力、经验、工作空间）
         skills_dir = agent_dir / "skills"
         experiences_dir = agent_dir / "experiences"
+        workspace_dir = agent_dir / "workspace"
 
         skills_dir.mkdir(parents=True, exist_ok=True)
         experiences_dir.mkdir(parents=True, exist_ok=True)
+        workspace_dir.mkdir(parents=True, exist_ok=True)
 
         # 创建Agent配置文件
         profile_path = agent_dir / "profile.json"
@@ -144,7 +149,7 @@ class AgentInitializer:
         self,
         user_id: str,
         agent_id: str,
-        shared_skills_dir: str = "./skills"
+        shared_skills_dir: str = "./market/skills"
     ) -> List[str]:
         """
         将共享技能目录下的所有技能复制到Agent的skills目录

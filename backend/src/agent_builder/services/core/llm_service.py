@@ -6,7 +6,7 @@ using OpenAI-compatible API format.
 """
 
 import json
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, List, Optional
 
 import httpx
 
@@ -107,13 +107,51 @@ class LLMClient:
                     f"{self.api_base}/api/chat",
                     json=payload,
                 )
+                response.raise_for_status()
+
+                # Ollama might return streaming response even with stream=false
+                # Handle multiple JSON objects (newline-separated)
+                text = response.text.strip()
+                if "\n" in text:
+                    # Multiple JSON objects - it's a streaming response
+                    # Collect content from all chunks
+                    full_content = ""
+                    full_thinking = ""
+                    last_data = None
+
+                    lines = text.split("\n")
+                    for line in lines:
+                        if line.strip():
+                            try:
+                                chunk = json.loads(line)
+                                last_data = chunk
+                                # Accumulate content
+                                msg = chunk.get("message", {})
+                                if msg.get("content"):
+                                    full_content += msg.get("content", "")
+                                if msg.get("thinking"):
+                                    full_thinking += msg.get("thinking", "")
+                            except:
+                                continue
+
+                    # Use the last complete data for metadata
+                    data = last_data or {}
+                    # Override message with accumulated content
+                    if full_content or full_thinking:
+                        data["message"] = {
+                            "content": full_content,
+                            "thinking": full_thinking if full_thinking else None
+                        }
+                else:
+                    # Single JSON object
+                    data = response.json()
             else:
                 response = await self._client.post(
                     f"{self.api_base}/chat/completions",
                     json=payload,
                 )
-            response.raise_for_status()
-            data = response.json()
+                response.raise_for_status()
+                data = response.json()
 
             # Handle streaming response
             if stream:
@@ -254,3 +292,58 @@ class LLMClient:
             yield f"data: {json.dumps({'error': f'LLM API error: {e.response.status_code} - {e.response.text}'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': f'LLM request failed: {str(e)}'})}\n\n"
+
+    async def generate_embedding(
+        self,
+        text: str,
+        embedding_model: Optional[str] = None,
+    ) -> List[float]:
+        """Generate embedding for text using embedding model.
+
+        Args:
+            text: Text to generate embedding for
+            embedding_model: Override default embedding model (e.g., "qwen3-embedding:4b")
+
+        Returns:
+            List of floats representing the embedding vector
+        """
+        model = embedding_model or self.model
+
+        # For Ollama, use /api/embeddings endpoint
+        if self.is_ollama:
+            payload = {
+                "model": model,
+                "prompt": text,
+            }
+            try:
+                response = await self._client.post(
+                    f"{self.api_base}/api/embeddings",
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
+                embedding = data.get("embedding", [])
+                return embedding
+            except httpx.HTTPStatusError as e:
+                raise Exception(f"Embedding API error: {e.response.status_code} - {e.response.text}")
+            except Exception as e:
+                raise Exception(f"Embedding request failed: {str(e)}")
+        else:
+            # OpenAI-compatible API format
+            payload = {
+                "input": text,
+                "model": model,
+            }
+            try:
+                response = await self._client.post(
+                    f"{self.api_base}/embeddings",
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
+                embedding = data.get("data", [{}])[0].get("embedding", [])
+                return embedding
+            except httpx.HTTPStatusError as e:
+                raise Exception(f"Embedding API error: {e.response.status_code} - {e.response.text}")
+            except Exception as e:
+                raise Exception(f"Embedding request failed: {str(e)}")

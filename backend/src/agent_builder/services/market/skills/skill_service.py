@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 
 from agent_builder.db.models import AgentSkill, Agent, MCPServerConfig
-from agent_builder.services.mcp_client_manager import MCPClientManager
+from agent_builder.services.core.mcp_client_manager import MCPClientManager
 
 
 @dataclass

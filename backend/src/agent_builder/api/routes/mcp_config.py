@@ -16,8 +16,8 @@ from sqlalchemy import select
 from agent_builder.core.database import get_db
 from agent_builder.db.models import MCPServerConfig
 from agent_builder.myauth_integration.auth import get_current_user
-from agent_builder.services.mcp_client_manager import MCPClientManager
-from agent_builder.services.skill_service import SkillService
+from agent_builder.services.core.mcp_client_manager import MCPClientManager
+from agent_builder.services.market.skills.skill_service import SkillService
 
 
 router = APIRouter(prefix="/api/mcp-servers", tags=["mcp"])

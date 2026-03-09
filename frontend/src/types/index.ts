@@ -128,9 +128,9 @@ export interface ChatRequest {
 
 // Experiment Types
 export type ExperimentType = 'skill_creation' | 'document' | 'document_generation' | 'problem_solving' | 'data_analysis' | 'collaboration' | 'custom';
-export type ExperimentStatus = 'pending' | 'running' | 'success' | 'failed';
+export type ExperimentStatus = 'pending' | 'running' | 'sense' | 'plan' | 'act' | 'reflect' | 'success' | 'failed';
 
-export type CollaborationType = 'sequential' | 'parallel' | 'debate';
+export type CollaborationType = 'sequential' | 'parallel' | 'debate' | 'hierarchical';
 export type ParticipantRole = 'leader' | 'worker' | 'reviewer' | 'observer';
 export type ParticipantStatus = 'pending' | 'active' | 'completed' | 'failed';
 
@@ -142,6 +142,10 @@ export interface ExperimentParticipant {
   role: ParticipantRole;
   join_order: number;
   status: ParticipantStatus;
+  // 新增：Agent 关系配置
+  depends_on?: string[];
+  message_to?: string;
+  parent_id?: string;
   config: Record<string, unknown>;
   created_at: string;
   updated_at?: string;
@@ -158,6 +162,10 @@ export interface ExperimentParticipantCreate {
   agent_id: string;
   role: ParticipantRole;
   join_order: number;
+  // 新增：Agent 关系配置
+  depends_on?: string[];
+  message_to?: string;
+  parent_id?: string;
   config?: Record<string, unknown>;
 }
 
@@ -340,6 +348,7 @@ export interface Document {
   tags: string[];
   category?: string;
   is_public: boolean;
+  source: string;  // "database" or "filesystem"
   user_id: string;
   created_at: string;
   updated_at?: string;
@@ -368,6 +377,7 @@ export interface Dataset {
   tags: string[];
   category?: string;
   is_public: boolean;
+  source: string;  // "database" or "filesystem"
   user_id: string;
   created_at: string;
   updated_at?: string;
@@ -397,6 +407,7 @@ export interface Skill {
   tags: string[];
   usage_count: number;
   is_public: boolean;
+  source: string;  // "database" or "filesystem"
   user_id: string;
   created_at: string;
   updated_at?: string;

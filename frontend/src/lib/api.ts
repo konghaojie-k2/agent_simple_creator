@@ -8,13 +8,11 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
-// Get token from cookies
+// Get token from localStorage (more reliable in Next.js)
 function getAuthHeader(): Record<string, string> {
-  if (typeof document === 'undefined') return {};
-  const token = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('access_token='))
-    ?.split('=')[1];
+  if (typeof window === 'undefined') return {};
+  const token = localStorage.getItem('token');
+  console.log('[API] Token from localStorage:', token ? `${token.substring(0, 20)}...` : 'NOT FOUND');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -109,10 +107,7 @@ export const agentsApi = {
 // Chat API
 export const chatApi = {
   sendMessage: (agentId: string, message: string, sessionId?: string) => {
-    const token = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('access_token='))
-      ?.split('=')[1];
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
     return fetch(`${API_BASE}/api/chat/${agentId}`, {
       method: 'POST',
@@ -222,33 +217,69 @@ export const soulApi = {
     request<{ soul_content: string; core_truths: string[]; boundaries: string[]; vibe: string }>('/api/soul/template'),
 };
 
-// Documents API
+// Documents API (Doc Market)
 export const documentsApi = {
-  list: (params?: { doc_type?: string; category?: string; tags?: string }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
-    return request<import('@/types').Document[]>(`/api/documents${query ? `?${query}` : ''}`);
+  list: (params?: { doc_type?: string; category?: string; tags?: string; is_public?: boolean; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.doc_type) searchParams.set('doc_type', params.doc_type);
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.tags) searchParams.set('tags', params.tags);
+    if (params?.is_public !== undefined) searchParams.set('is_public', String(params.is_public));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.offset) searchParams.set('offset', String(params.offset));
+    const query = searchParams.toString();
+    return request<import('@/types').Document[]>(`/api/market/documents${query ? `?${query}` : ''}`);
   },
 
-  get: (id: string) => request<import('@/types').Document>(`/api/documents/${id}`),
+  get: (id: string) => request<import('@/types').Document>(`/api/market/documents/${id}`),
 
   create: (data: import('@/types').CreateDocumentRequest) =>
-    request<import('@/types').Document>('/api/documents', {
+    request<import('@/types').Document>('/api/market/documents', {
       method: 'POST',
       body: data,
     }),
 
-  delete: (id: string) => request<void>(`/api/documents/${id}`, {
+  upload: (file: File, data: { name: string; doc_type?: string; category?: string; description?: string; tags?: string; is_public?: boolean }) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', data.name);
+    if (data.doc_type) formData.append('doc_type', data.doc_type);
+    if (data.category) formData.append('category', data.category);
+    if (data.description) formData.append('description', data.description);
+    if (data.tags) formData.append('tags', data.tags);
+    formData.append('is_public', String(data.is_public ?? false));
+
+    return request<import('@/types').Document>('/api/market/documents/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  delete: (id: string) => request<void>(`/api/market/documents/${id}`, {
     method: 'DELETE',
   }),
 
+  updateVisibility: (id: string, isPublic: boolean) =>
+    request<import('@/types').Document>(`/api/market/documents/${id}/visibility`, {
+      method: 'PATCH',
+      body: { is_public: isPublic },
+    }),
+
   search: (keyword: string) =>
-    request<import('@/types').Document[]>(`/api/documents/search?keyword=${encodeURIComponent(keyword)}`),
+    request<import('@/types').Document[]>(`/api/market/documents/search?keyword=${encodeURIComponent(keyword)}`),
 };
 
 // Datasets API (Data Market)
 export const datasetsApi = {
-  list: (params?: { dataset_type?: string; category?: string; tags?: string; limit?: number; offset?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+  list: (params?: { dataset_type?: string; category?: string; tags?: string; is_public?: boolean; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.dataset_type) searchParams.set('dataset_type', params.dataset_type);
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.tags) searchParams.set('tags', params.tags);
+    if (params?.is_public !== undefined) searchParams.set('is_public', String(params.is_public));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.offset) searchParams.set('offset', String(params.offset));
+    const query = searchParams.toString();
     return request<import('@/types').Dataset[]>(`/api/market/datasets${query ? `?${query}` : ''}`);
   },
 
@@ -260,6 +291,21 @@ export const datasetsApi = {
       body: data,
     }),
 
+  upload: (file: File, data: { name: string; description?: string; category?: string; tags?: string; is_public?: boolean }) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', data.name);
+    if (data.description) formData.append('description', data.description);
+    if (data.category) formData.append('category', data.category);
+    if (data.tags) formData.append('tags', data.tags);
+    formData.append('is_public', String(data.is_public ?? false));
+
+    return request<import('@/types').Dataset>('/api/market/datasets/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
   update: (id: string, data: Partial<import('@/types').CreateDatasetRequest>) =>
     request<import('@/types').Dataset>(`/api/market/datasets/${id}`, {
       method: 'PUT',
@@ -269,14 +315,29 @@ export const datasetsApi = {
   delete: (id: string) => request<void>(`/api/market/datasets/${id}`, {
     method: 'DELETE',
   }),
+
+  updateVisibility: (id: string, isPublic: boolean) =>
+    request<import('@/types').Dataset>(`/api/market/datasets/${id}/visibility`, {
+      method: 'PATCH',
+      body: { is_public: isPublic },
+    }),
 };
 
 // Skills API (Skill Market)
 export const skillsApi = {
-  list: (params?: { category?: string; tags?: string; limit?: number; offset?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+  list: (params?: { category?: string; tags?: string; is_public?: boolean; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.tags) searchParams.set('tags', params.tags);
+    if (params?.is_public !== undefined) searchParams.set('is_public', String(params.is_public));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.offset) searchParams.set('offset', String(params.offset));
+    const query = searchParams.toString();
     return request<import('@/types').Skill[]>(`/api/market/skills${query ? `?${query}` : ''}`);
   },
+
+  // 列出文件系统中的公共技能（内置技能）
+  listFilesystem: () => request<{ name: string; description: string; category: string; tags: string[]; allowed_tools: string[]; folder_name: string }[]>('/api/market/skills/filesystem'),
 
   get: (id: string) => request<import('@/types').Skill>(`/api/market/skills/${id}`),
 
@@ -285,6 +346,21 @@ export const skillsApi = {
       method: 'POST',
       body: data,
     }),
+
+  upload: (file: File, data: { name: string; description?: string; category?: string; tags?: string; is_public?: boolean }) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', data.name);
+    if (data.description) formData.append('description', data.description);
+    if (data.category) formData.append('category', data.category);
+    if (data.tags) formData.append('tags', data.tags);
+    formData.append('is_public', String(data.is_public ?? false));
+
+    return request<import('@/types').Skill>('/api/market/skills/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 
   update: (id: string, data: Partial<import('@/types').CreateSkillRequest>) =>
     request<import('@/types').Skill>(`/api/market/skills/${id}`, {
@@ -295,4 +371,10 @@ export const skillsApi = {
   delete: (id: string) => request<void>(`/api/market/skills/${id}`, {
     method: 'DELETE',
   }),
+
+  updateVisibility: (id: string, isPublic: boolean) =>
+    request<import('@/types').Skill>(`/api/market/skills/${id}/visibility`, {
+      method: 'PATCH',
+      body: { is_public: isPublic },
+    }),
 };

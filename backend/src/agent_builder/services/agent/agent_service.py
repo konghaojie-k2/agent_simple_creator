@@ -14,7 +14,7 @@ from agent_builder.core.config import settings
 from agent_builder.core.security import decrypt_api_key, encrypt_api_key
 from agent_builder.db.models import Agent, ChatSession, LLMProvider
 from agent_builder.schemas.pydantic import AgentCreate, AgentUpdate, ChatMessage, LLMProviderCreate, LLMProviderUpdate
-from agent_builder.services.llm_service import LLMClient
+from agent_builder.services.core.llm_service import LLMClient
 
 
 class AgentService:
