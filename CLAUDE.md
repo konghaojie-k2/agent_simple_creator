@@ -130,3 +130,46 @@ logger.add(
 ## Additional Guidelines
 
 For detailed coding standards, import conventions, and API patterns, see [AGENTS.md](./AGENTS.md).
+
+---
+
+## Market Service 技术资产
+
+### 复用项目地址
+
+| 项目 | 路径 | 复用方向 |
+|------|------|----------|
+| Skill Market | `C:/CODE/skill market` | Skill 模块核心逻辑（上传/下载/版本控制） |
+| Dataset Manager | `C:/CODE/dataset-manager` | Data 模块核心逻辑（文件上传/元数据） |
+| Project Space | `C:/CODE/project space` | 架构参考（RAG/FastAPI 模式） |
+
+### 复用建议
+
+- **Skill Market → market-service/skill_module**：复用 `backend/app/services/` 核心逻辑
+- **Dataset Manager → market-service/data_module**：复用 `backend/src/tools/` 文件处理逻辑
+- **Project Space**：参考 FastAPI + 前端模式
+
+---
+
+## 开发计划
+
+### 分支策略
+
+当前分支：`feature/market-service-architecture`
+
+### 开发阶段
+
+1. **阶段 1 - MVP（1-2周）**
+   - 搭建 Market Service 骨架
+   - 实现一个简单 API 验证
+   - 编写一个插件 demo
+
+2. **阶段 2 - 核心功能（2-3周）**
+   - 完成 Data/Doc/Skill API
+   - 权限管理
+   - 完善 3 个插件
+
+3. **阶段 3 - 集成（1-2周）**
+   - Skill 配置
+   - 端到端测试
+   - 部署文档
