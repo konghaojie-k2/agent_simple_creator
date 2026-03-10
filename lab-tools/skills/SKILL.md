@@ -25,18 +25,45 @@ This plugin provides agent tools to interact with the Market Service.
 
 ### Data Tools
 
-- `market_list_datasets` - List available datasets
-- `market_get_dataset` - Get dataset details
-- `market_search_datasets` - Search datasets by keyword
+| Tool | Description |
+|------|-------------|
+| `market_list_datasets` | List available datasets |
+| `market_get_dataset` | Get dataset details by ID |
+| `market_search_datasets` | Search datasets by keyword |
+| `market_create_dataset` | Create a new dataset |
+| `market_delete_dataset` | Delete a dataset |
 
 ### Document Tools
 
-- `market_list_documents` - List available documents
-- `market_get_document` - Get document details
-- `market_search_documents` - Search documents by keyword
+| Tool | Description |
+|------|-------------|
+| `market_list_documents` | List available documents |
+| `market_get_document` | Get document details by ID |
+| `market_search_documents` | Search documents by keyword |
 
 ### Skill Tools
 
-- `market_list_skills` - List available skills
-- `market_get_skill` - Get skill details
-- `market_search_skills` - Search skills by keyword
+| Tool | Description |
+|------|-------------|
+| `market_list_skills` | List available skills |
+| `market_get_skill` | Get skill details by ID |
+| `market_search_skills` | Search skills by keyword |
+
+### Utility Tools
+
+| Tool | Description |
+|------|-------------|
+| `market_health_check` | Check if Market Service is healthy |
+| `market_get_stats` | Get market statistics |
+
+## Usage Example
+
+```
+Agent: "List all available datasets"
+Tool: market_list_datasets
+Result: [...]
+
+Agent: "Search for sales data"
+Tool: market_search_datasets q="sales"
+Result: [...]
+```
