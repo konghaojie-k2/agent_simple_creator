@@ -118,6 +118,32 @@ export default function (api) {
   });
 
   api.registerTool({
+    name: "market_upload_dataset",
+    description: "Upload a dataset file to the market. Returns the created dataset with file info.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Dataset name" },
+        description: { type: "string", description: "Dataset description" },
+        category: { type: "string", description: "Dataset category" },
+        tags: { type: "string", description: "Comma-separated tags" },
+        is_public: { type: "boolean", default: false, description: "Make dataset public" },
+        file_url: { type: "string", description: "URL to download the file from" },
+      },
+      required: ["name", "file_url"],
+    },
+    async execute(_id, params) {
+      try {
+        // Download file from URL and upload
+        const data = await makeRequest("/api/market/datasets/upload", "POST", params);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
     name: "market_delete_dataset",
     description: "Delete a dataset from the market",
     parameters: {
@@ -131,6 +157,100 @@ export default function (api) {
       try {
         await makeRequest(`/api/market/datasets/${params.dataset_id}`, "DELETE");
         return { content: [{ type: "text", text: "Dataset deleted successfully" }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  // ========== Analysis Tools ==========
+
+  api.registerTool({
+    name: "market_analyze_dataset",
+    description: "Analyze a dataset and generate comprehensive metadata including semantic types, quality scores, and insights",
+    parameters: {
+      type: "object",
+      properties: {
+        dataset_id: { type: "string", description: "The dataset ID to analyze" },
+        sample_size: { type: "number", default: 1000, description: "Number of rows to sample for analysis" },
+      },
+      required: ["dataset_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const queryParams = new URLSearchParams();
+        queryParams.append("dataset_id", params.dataset_id);
+        if (params.sample_size) queryParams.append("sample_size", params.sample_size.toString());
+        
+        const data = await makeRequest(`/api/market/datasets/analyze?${queryParams.toString()}`);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_dataset_quality",
+    description: "Get data quality report for a dataset including completeness, uniqueness, and consistency scores",
+    parameters: {
+      type: "object",
+      properties: {
+        dataset_id: { type: "string", description: "The dataset ID" },
+      },
+      required: ["dataset_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest(`/api/market/datasets/${params.dataset_id}/quality`);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_dataset_schema",
+    description: "Get dataset schema with column types and semantic information",
+    parameters: {
+      type: "object",
+      properties: {
+        dataset_id: { type: "string", description: "The dataset ID" },
+        include_semantics: { type: "boolean", default: true, description: "Include semantic type information" },
+      },
+      required: ["dataset_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const queryParams = new URLSearchParams();
+        queryParams.append("include_semantics", params.include_semantics?.toString() || "true");
+        const data = await makeRequest(`/api/market/datasets/${params.dataset_id}/schema?${queryParams.toString()}`);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_dataset_insights",
+    description: "Get AI-generated insights and recommendations for a dataset",
+    parameters: {
+      type: "object",
+      properties: {
+        dataset_id: { type: "string", description: "The dataset ID" },
+        sample_size: { type: "number", default: 1000 },
+      },
+      required: ["dataset_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const queryParams = new URLSearchParams();
+        queryParams.append("dataset_id", params.dataset_id);
+        if (params.sample_size) queryParams.append("sample_size", params.sample_size.toString());
+        const data = await makeRequest(`/api/market/datasets/${params.dataset_id}/insights?${queryParams.toString()}`);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       } catch (error) {
         return { content: [{ type: "text", text: `Error: ${error.message}` }] };
       }
@@ -199,6 +319,50 @@ export default function (api) {
         const queryParams = new URLSearchParams({ q: params.q, limit: (params.limit || 10).toString() });
         const data = await makeRequest(`/api/market/documents/search?${queryParams.toString()}`);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_upload_document",
+    description: "Upload a document to the market",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Document name" },
+        description: { type: "string", description: "Document description" },
+        category: { type: "string", description: "Document category" },
+        file_url: { type: "string", description: "URL to download the file from" },
+        is_public: { type: "boolean", default: false },
+      },
+      required: ["name", "file_url"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest("/api/market/documents/upload", "POST", params);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_delete_document",
+    description: "Delete a document from the market",
+    parameters: {
+      type: "object",
+      properties: {
+        document_id: { type: "string", description: "The document ID to delete" },
+      },
+      required: ["document_id"],
+    },
+    async execute(_id, params) {
+      try {
+        await makeRequest(`/api/market/documents/${params.document_id}`, "DELETE");
+        return { content: [{ type: "text", text: "Document deleted successfully" }] };
       } catch (error) {
         return { content: [{ type: "text", text: `Error: ${error.message}` }] };
       }
