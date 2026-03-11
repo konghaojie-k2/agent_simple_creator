@@ -893,4 +893,101 @@ export default function (api) {
       }
     },
   });
+
+  // ========== Permission Management Tools ==========
+
+  api.registerTool({
+    name: "market_grant_permission",
+    description: "Grant permission to a user for a specific resource",
+    parameters: {
+      type: "object",
+      properties: {
+        resource_type: { type: "string", enum: ["dataset", "document", "skill"], description: "Resource type" },
+        resource_id: { type: "string", description: "Resource ID" },
+        user_id: { type: "string", description: "User ID to grant access" },
+        permission: { type: "string", enum: ["read", "write", "admin"], description: "Permission level" },
+      },
+      required: ["resource_type", "resource_id", "user_id", "permission"],
+    },
+    async execute(_id, params) {
+      try {
+        const endpoint = `/api/market/${params.resource_type}s/${params.resource_id}/permissions`;
+        const data = await makeRequest(endpoint, "POST", {
+          user_id: params.user_id,
+          permission: params.permission,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_revoke_permission",
+    description: "Revoke permission from a user for a specific resource",
+    parameters: {
+      type: "object",
+      properties: {
+        resource_type: { type: "string", enum: ["dataset", "document", "skill"], description: "Resource type" },
+        resource_id: { type: "string", description: "Resource ID" },
+        user_id: { type: "string", description: "User ID to revoke access" },
+      },
+      required: ["resource_type", "resource_id", "user_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const endpoint = `/api/market/${params.resource_type}s/${params.resource_id}/permissions/${params.user_id}`;
+        const data = await makeRequest(endpoint, "DELETE");
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_list_permissions",
+    description: "List all permissions for a specific resource",
+    parameters: {
+      type: "object",
+      properties: {
+        resource_type: { type: "string", enum: ["dataset", "document", "skill"], description: "Resource type" },
+        resource_id: { type: "string", description: "Resource ID" },
+      },
+      required: ["resource_type", "resource_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const endpoint = `/api/market/${params.resource_type}s/${params.resource_id}/permissions`;
+        const data = await makeRequest(endpoint);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_check_permission",
+    description: "Check if current user has permission to access a resource",
+    parameters: {
+      type: "object",
+      properties: {
+        resource_type: { type: "string", enum: ["dataset", "document", "skill"], description: "Resource type" },
+        resource_id: { type: "string", description: "Resource ID" },
+        required_permission: { type: "string", enum: ["read", "write", "admin"], description: "Required permission level" },
+      },
+      required: ["resource_type", "resource_id", "required_permission"],
+    },
+    async execute(_id, params) {
+      try {
+        const endpoint = `/api/market/${params.resource_type}s/${params.resource_id}/check-permission?permission=${params.required_permission}`;
+        const data = await makeRequest(endpoint);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
 }
