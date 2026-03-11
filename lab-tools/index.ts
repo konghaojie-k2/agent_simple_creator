@@ -1,8 +1,15 @@
 // Lab Tools Plugin - Market Service integration
 // This plugin provides agent tools to interact with Market Service
+//
+// Configuration:
+// - Set MARKET_SERVICE_URL environment variable to override the default
+// - Default: http://localhost:8000 (development)
 
 export default function (api) {
-  const MARKET_SERVICE_URL = "http://localhost:8000";
+  // Support environment variable configuration, fallback to localhost for development
+  const MARKET_SERVICE_URL = typeof process !== 'undefined' && process.env?.MARKET_SERVICE_URL
+    ? process.env.MARKET_SERVICE_URL
+    : "http://localhost:8000";
 
   // ========== Helper Functions ==========
   

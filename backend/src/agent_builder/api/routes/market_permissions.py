@@ -18,7 +18,9 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from pathlib import Path
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from agent_builder.core.database import get_db
 from agent_builder.myauth_integration.auth import get_current_user
 from agent_builder.services.market.folder_permission_service import folder_permission_service
 
@@ -77,19 +79,10 @@ async def grant_permission(
     
     # Save share config
     folder_permission_service.set_share_config(resource_type, resource_id, allowed_users, user_id)
-    
-    return {
-        "success": True,
-        "resource_type": resource_type,
-        "resource_id": resource_id,
-        "user_id": permission_data.user_id,
-        "permission": permission_data.permission,
-        "message": f"Permission '{permission_data.permission}' granted to user {permission_data.user_id}"
-    }
-    
+
     # TODO: Implement actual permission granting logic
     # This would update the permissions table in the database
-    
+
     return {
         "success": True,
         "resource_type": resource_type,

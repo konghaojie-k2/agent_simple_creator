@@ -11,6 +11,7 @@ Datasets API - 数据集市场 API
 
 import os
 import json
+import uuid
 from typing import List, Optional
 
 import pandas as pd
@@ -83,12 +84,22 @@ async def upload_dataset(
     # 保存文件到用户的私有目录
     user_dir = os.path.join(MARKET_DIR, user_id)
     os.makedirs(user_dir, exist_ok=True)
-    safe_filename = f"{file.filename}"
+
+    # 安全处理文件名，防止目录遍历攻击
+    safe_filename = os.path.basename(file.filename)
+    if not safe_filename:
+        safe_filename = f"dataset_{uuid.uuid4().hex[:8]}{file_ext}"
     file_path = os.path.join(user_dir, safe_filename)
 
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    try:
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save file: {str(e)}"
+        )
 
     # 解析文件内容获取行数和schema
     row_count = 0
@@ -293,7 +304,8 @@ async def analyze_dataset(
     if not dataset.file_path:
         raise HTTPException(status_code=400, detail="Dataset has no file")
     
-    file_path = os.path.join(MARKET_DIR, dataset.user_id, dataset.id, dataset.file_path)
+    # Use the stored file_path directly (it's stored as absolute path from upload)
+    file_path = dataset.file_path
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Dataset file not found")
     
@@ -335,7 +347,8 @@ async def get_dataset_quality(
     if not dataset.file_path:
         raise HTTPException(status_code=400, detail="Dataset has no file")
     
-    file_path = os.path.join(MARKET_DIR, dataset.user_id, dataset.id, dataset.file_path)
+    # Use the stored file_path directly (it's stored as absolute path from upload)
+    file_path = dataset.file_path
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Dataset file not found")
     
@@ -410,7 +423,8 @@ async def get_dataset_insights(
     if not dataset.file_path:
         raise HTTPException(status_code=400, detail="Dataset has no file")
     
-    file_path = os.path.join(MARKET_DIR, dataset.user_id, dataset.id, dataset.file_path)
+    # Use the stored file_path directly (it's stored as absolute path from upload)
+    file_path = dataset.file_path
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Dataset file not found")
     

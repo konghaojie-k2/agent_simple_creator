@@ -184,26 +184,32 @@ class EnhancedMetadataService:
         """Calculate data quality score"""
         total_cells = df.shape[0] * df.shape[1]
         non_null_cells = df.notna().sum().sum()
-        
-        completeness = non_null_cells / total_cells
-        uniqueness = 1 - (df.duplicated().sum() / len(df))
-        
-        # Simple consistency check
+
+        completeness = non_null_cells / total_cells if total_cells > 0 else 0
+        uniqueness = 1 - (df.duplicated().sum() / len(df)) if len(df) > 0 else 0
+
+        # Consistency check: detect potential type mismatch issues
+        # If an object column CAN be converted to numeric, it might be stored in wrong format
         consistency = 1.0
         type_issues = 0
+        total_checkable_columns = 0
+
         for col in df.columns:
-            if df[col].dtype == 'object':
+            if df[col].dtype == 'object' and df[col].notna().any():
+                total_checkable_columns += 1
                 try:
+                    # If conversion succeeds, the data might be in wrong format
                     pd.to_numeric(df[col].dropna().head(100))
                     type_issues += 1
-                except:
+                except (ValueError, TypeError):
+                    # Cannot convert, which is expected for text columns
                     pass
-        
-        if len(df.columns) > 0:
-            consistency = 1 - (type_issues / len(df.columns))
-        
+
+        if total_checkable_columns > 0:
+            consistency = 1 - (type_issues / total_checkable_columns)
+
         overall = (completeness * 0.4 + uniqueness * 0.3 + consistency * 0.3) * 100
-        
+
         return {
             "overall_score": round(overall, 2),
             "completeness": round(completeness * 100, 2),

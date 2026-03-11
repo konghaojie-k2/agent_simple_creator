@@ -31,14 +31,6 @@ class Settings:
     # App
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
 
-    # Workspaces
-    WORKSPACES_DIR: str = os.getenv("WORKSPACES_DIR", "./workspaces")
-
-    # Mini-Agent config
-    SYSTEM_PROMPT_PATH: str = os.getenv("SYSTEM_PROMPT_PATH", "mini_agent/config/system_prompt.md")
-    MAX_STEPS: int = int(os.getenv("MAX_STEPS", "50"))
-    TOKEN_LIMIT: int = int(os.getenv("TOKEN_LIMIT", "80000"))
-
     @property
     def encryption_key_bytes(self) -> bytes:
         """Get encryption key as bytes."""

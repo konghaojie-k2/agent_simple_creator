@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""FastAPI application entry point."""
+"""FastAPI application entry point - Market Service."""
 
 import sys
 from contextlib import asynccontextmanager
@@ -23,12 +23,6 @@ logger.add(
 )
 
 # Import routes after app is created to avoid circular imports
-from agent_builder.api.routes import agents, chat, providers, experiments
-from agent_builder.api.routes.experience_system import router as experience_router
-from agent_builder.api.routes.experience_system import agents_router as experience_agents_router
-from agent_builder.api.routes.mcp_config import router as mcp_router
-from agent_builder.api.routes.agent_skills import router as agent_skills_router
-from agent_builder.api.routes.soul import router as soul_router
 from agent_builder.api.routes.documents import router as documents_router
 from agent_builder.api.routes.datasets import router as datasets_router
 from agent_builder.api.routes.skills import router as skills_router
@@ -69,9 +63,6 @@ async def lifespan(app: FastAPI):
         auth_router = create_auth_router(auth)
         app.include_router(auth_router)
 
-    # Create workspaces directory
-    Path(settings.WORKSPACES_DIR).mkdir(parents=True, exist_ok=True)
-
     yield
 
     # Shutdown
@@ -81,8 +72,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Agent Builder API",
-    description="Simple Agent Builder with Multi-Provider Support",
+    title="Market Service API",
+    description="Data/Document/Skill Market Service",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -96,29 +87,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers (after app is created)
-app.include_router(providers.router)
-app.include_router(agents.router)
-app.include_router(chat.router)
-app.include_router(experiments.router)
-app.include_router(experiments.templates_router)
-app.include_router(experiments.experiences_router)
-app.include_router(experiments.collaboration_router)  # 多Agent协作实验路由
-app.include_router(experience_router)
-app.include_router(experience_agents_router)
-app.include_router(mcp_router)
-app.include_router(agent_skills_router)
-app.include_router(soul_router)  # User SOUL 管理路由
+# Include routers (Market Service only)
 app.include_router(documents_router)  # Doc Market 路由
 app.include_router(datasets_router)  # Data Market 路由
-app.include_router(market_permissions_router)  # Market 权限/共享/版本等路由
 app.include_router(skills_router)  # Skill Market 路由
+app.include_router(market_permissions_router)  # Market 权限/共享/版本等路由
 
 
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {"message": "Agent Builder API", "version": "0.1.0"}
+    return {"message": "Market Service API", "version": "0.1.0"}
 
 
 @app.get("/health")
