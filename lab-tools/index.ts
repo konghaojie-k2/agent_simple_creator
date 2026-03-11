@@ -787,4 +787,110 @@ export default function (api) {
       }
     },
   });
+
+  // ========== Sharing/Publication Tools ==========
+
+  api.registerTool({
+    name: "market_share_dataset",
+    description: "Share a private dataset publicly or with specific users",
+    parameters: {
+      type: "object",
+      properties: {
+        dataset_id: { type: "string", description: "Dataset ID to share" },
+        visibility: { type: "string", enum: ["public", "private", "shared"], description: "Visibility level" },
+        allowed_users: { type: "array", items: { type: "string" }, description: "User IDs to share with" },
+      },
+      required: ["dataset_id", "visibility"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest(`/api/market/datasets/${params.dataset_id}/share`, "POST", {
+          visibility: params.visibility,
+          allowed_users: params.allowed_users,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_share_document",
+    description: "Share a private document publicly or with specific users",
+    parameters: {
+      type: "object",
+      properties: {
+        document_id: { type: "string", description: "Document ID to share" },
+        visibility: { type: "string", enum: ["public", "private", "shared"], description: "Visibility level" },
+        allowed_users: { type: "array", items: { type: "string" }, description: "User IDs to share with" },
+      },
+      required: ["document_id", "visibility"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest(`/api/market/documents/${params.document_id}/share`, "POST", {
+          visibility: params.visibility,
+          allowed_users: params.allowed_users,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_share_skill",
+    description: "Share a private skill publicly or with specific users",
+    parameters: {
+      type: "object",
+      properties: {
+        skill_id: { type: "string", description: "Skill ID to share" },
+        visibility: { type: "string", enum: ["public", "private", "shared"], description: "Visibility level" },
+        allowed_users: { type: "array", items: { type: "string" }, description: "User IDs to share with" },
+      },
+      required: ["skill_id", "visibility"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest(`/api/market/skills/${params.skill_id}/share`, "POST", {
+          visibility: params.visibility,
+          allowed_users: params.allowed_users,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_publish_to_public",
+    description: "Publish a private resource to public marketplace",
+    parameters: {
+      type: "object",
+      properties: {
+        resource_type: { type: "string", enum: ["dataset", "document", "skill"], description: "Resource type" },
+        resource_id: { type: "string", description: "Resource ID to publish" },
+        name: { type: "string", description: "Public name" },
+        description: { type: "string", description: "Public description" },
+        tags: { type: "array", items: { type: "string" }, description: "Public tags" },
+      },
+      required: ["resource_type", "resource_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const endpoint = `/api/market/${params.resource_type}s/${params.resource_id}/publish`;
+        const data = await makeRequest(endpoint, "POST", {
+          name: params.name,
+          description: params.description,
+          tags: params.tags,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
 }
