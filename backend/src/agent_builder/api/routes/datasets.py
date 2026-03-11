@@ -13,6 +13,7 @@ import os
 import json
 from typing import List, Optional
 
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -268,3 +269,170 @@ async def delete_dataset(
             detail="Dataset not found"
         )
     return None
+
+
+# ========== Analysis Endpoints ==========
+
+@router.get("/{dataset_id}/analyze")
+async def analyze_dataset(
+    dataset_id: str,
+    sample_size: int = Query(1000, ge=100, le=10000),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """Analyze dataset and generate comprehensive metadata"""
+    from agent_builder.services.market.data.analysis.metadata_service import enhanced_metadata_service
+    
+    service = MarketService(db)
+    dataset = await service.get_dataset(dataset_id, user_id)
+    
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    # Load data file
+    if not dataset.file_path:
+        raise HTTPException(status_code=400, detail="Dataset has no file")
+    
+    file_path = os.path.join(MARKET_DIR, dataset.user_id, dataset.id, dataset.file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Dataset file not found")
+    
+    # Load data based on type
+    if dataset.dataset_type == 'csv':
+        df = pd.read_csv(file_path)
+    elif dataset.dataset_type == 'json':
+        df = pd.read_json(file_path)
+    elif dataset.dataset_type == 'parquet':
+        df = pd.read_parquet(file_path)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    
+    # Analyze
+    result = await enhanced_metadata_service.analyze_dataset(
+        dataset_id=dataset_id,
+        dataframe=df,
+        sample_size=sample_size
+    )
+    
+    return result
+
+
+@router.get("/{dataset_id}/quality")
+async def get_dataset_quality(
+    dataset_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """Get data quality report"""
+    from agent_builder.services.market.data.analysis.metadata_service import enhanced_metadata_service
+    
+    service = MarketService(db)
+    dataset = await service.get_dataset(dataset_id, user_id)
+    
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    if not dataset.file_path:
+        raise HTTPException(status_code=400, detail="Dataset has no file")
+    
+    file_path = os.path.join(MARKET_DIR, dataset.user_id, dataset.id, dataset.file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Dataset file not found")
+    
+    if dataset.dataset_type == 'csv':
+        df = pd.read_csv(file_path)
+    elif dataset.dataset_type == 'json':
+        df = pd.read_json(file_path)
+    elif dataset.dataset_type == 'parquet':
+        df = pd.read_parquet(file_path)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    
+    quality = enhanced_metadata_service._calculate_quality_score(df)
+    
+    return {
+        "dataset_id": dataset_id,
+        "quality": quality
+    }
+
+
+@router.get("/{dataset_id}/schema")
+async def get_dataset_schema(
+    dataset_id: str,
+    include_semantics: bool = Query(True),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """Get dataset schema"""
+    from agent_builder.services.market.data.analysis.metadata_service import enhanced_metadata_service
+    
+    service = MarketService(db)
+    dataset = await service.get_dataset(dataset_id, user_id)
+    
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    result = {
+        "dataset_id": dataset_id,
+        "name": dataset.name,
+        "columns": []
+    }
+    
+    if dataset.schema:
+        for col_name, col_type in dataset.schema.items():
+            col_info = {"name": col_name, "type": col_type}
+            
+            if include_semantics:
+                col_info["semantic_type"] = enhanced_metadata_service._infer_semantic_type(col_name)
+                col_info["business_description"] = enhanced_metadata_service._generate_business_description(col_name)
+            
+            result["columns"].append(col_info)
+    
+    return result
+
+
+@router.get("/{dataset_id}/insights")
+async def get_dataset_insights(
+    dataset_id: str,
+    sample_size: int = Query(1000, ge=100, le=10000),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """Get AI-generated insights"""
+    from agent_builder.services.market.data.analysis.metadata_service import enhanced_metadata_service
+    
+    service = MarketService(db)
+    dataset = await service.get_dataset(dataset_id, user_id)
+    
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    if not dataset.file_path:
+        raise HTTPException(status_code=400, detail="Dataset has no file")
+    
+    file_path = os.path.join(MARKET_DIR, dataset.user_id, dataset.id, dataset.file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Dataset file not found")
+    
+    if dataset.dataset_type == 'csv':
+        df = pd.read_csv(file_path)
+    elif dataset.dataset_type == 'json':
+        df = pd.read_json(file_path)
+    elif dataset.dataset_type == 'parquet':
+        df = pd.read_parquet(file_path)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    
+    result = await enhanced_metadata_service.analyze_dataset(
+        dataset_id=dataset_id,
+        dataframe=df,
+        sample_size=sample_size
+    )
+    
+    return {
+        "dataset_id": dataset_id,
+        "insights": result.get("data_understanding", {}).get("suggested_uses", []),
+        "issues": result.get("data_understanding", {}).get("potential_issues", []),
+        "summary": result.get("data_understanding", {}).get("summary", ""),
+        "key_fields": result.get("agent_queryable", {}).get("key_fields", [])
+    }
