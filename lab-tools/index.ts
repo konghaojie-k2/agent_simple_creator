@@ -589,6 +589,106 @@ export default function (api) {
     },
   });
 
+  // ========== Skill Configuration ==========
+
+  api.registerTool({
+    name: "market_configure_skill",
+    description: "Configure a skill with custom parameters",
+    parameters: {
+      type: "object",
+      properties: {
+        skill_id: { type: "string", description: "Skill ID to configure" },
+        config: { type: "object", description: "Configuration parameters" },
+      },
+      required: ["skill_id", "config"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest(`/api/market/skills/${params.skill_id}/config`, "POST", params.config);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_get_skill_config",
+    description: "Get current configuration for a skill",
+    parameters: {
+      type: "object",
+      properties: {
+        skill_id: { type: "string", description: "Skill ID" },
+      },
+      required: ["skill_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest(`/api/market/skills/${params.skill_id}/config`);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_enable_skill",
+    description: "Enable an installed skill",
+    parameters: {
+      type: "object",
+      properties: {
+        skill_id: { type: "string", description: "Skill ID to enable" },
+      },
+      required: ["skill_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest(`/api/market/skills/${params.skill_id}/enable`, "POST");
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_disable_skill",
+    description: "Disable an installed skill",
+    parameters: {
+      type: "object",
+      properties: {
+        skill_id: { type: "string", description: "Skill ID to disable" },
+      },
+      required: ["skill_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const data = await makeRequest(`/api/market/skills/${params.skill_id}/disable`, "POST");
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_list_skill_categories",
+    description: "List all skill categories",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+    async execute(_id, _params) {
+      try {
+        const data = await makeRequest("/api/market/skills/categories");
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
   // ========== Data Download Tools ==========
 
   api.registerTool({
