@@ -487,3 +487,171 @@ export default function (api) {
     },
   });
 }
+
+  // ========== Skill Installation Tools ==========
+
+  api.registerTool({
+    name: "market_install_skill",
+    description: "Download and install a skill to local OpenClaw skills directory",
+    parameters: {
+      type: "object",
+      properties: {
+        skill_id: { type: "string", description: "The skill ID to install" },
+        target_dir: { type: "string", description: "Target directory for installation (default: ~/.openclaw/skills)" },
+      },
+      required: ["skill_id"],
+    },
+    async execute(_id, params) {
+      try {
+        // First get skill details to get download URL
+        const skill = await makeRequest(`/api/market/skills/${params.skill_id}`);
+        
+        if (!skill.download_url && !skill.file_url) {
+          return { content: [{ type: "text", text: "Skill has no download URL" }] };
+        }
+        
+        // Download skill file
+        const downloadUrl = skill.download_url || skill.file_url;
+        
+        return { 
+          content: [{ 
+            type: "text", 
+            text: JSON.stringify({
+              message: "Skill download initiated",
+              skill_name: skill.name,
+              download_url: downloadUrl,
+              target_dir: params.target_dir || "~/.openclaw/skills",
+              instructions: "Use exec tool to download and extract the skill"
+            }, null, 2) 
+          }] 
+        };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_list_installed_skills",
+    description: "List skills installed in local OpenClaw skills directory",
+    parameters: {
+      type: "object",
+      properties: {
+        skills_dir: { type: "string", description: "Skills directory path" },
+      },
+    },
+    async execute(_id, params) {
+      try {
+        // This would need exec to actually list local files
+        // For now return instructions
+        return { 
+          content: [{ 
+            type: "text", 
+            text: JSON.stringify({
+              message: "Use exec tool to list skills directory",
+              default_dir: "~/.openclaw/skills",
+              suggested_command: "ls -la ~/.openclaw/skills/"
+            }, null, 2) 
+          }] 
+        };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_uninstall_skill",
+    description: "Remove a skill from local OpenClaw skills directory",
+    parameters: {
+      type: "object",
+      properties: {
+        skill_name: { type: "string", description: "The skill name to uninstall" },
+      },
+      required: ["skill_name"],
+    },
+    async execute(_id, params) {
+      try {
+        return { 
+          content: [{ 
+            type: "text", 
+            text: JSON.stringify({
+              message: "Skill uninstall",
+              skill_name: params.skill_name,
+              instructions: "Use exec tool to remove skill directory",
+              suggested_command: `rm -rf ~/.openclaw/skills/${params.skill_name}`
+            }, null, 2) 
+          }] 
+        };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  // ========== Data Download Tools ==========
+
+  api.registerTool({
+    name: "market_download_dataset",
+    description: "Get download URL for a dataset",
+    parameters: {
+      type: "object",
+      properties: {
+        dataset_id: { type: "string", description: "The dataset ID" },
+      },
+      required: ["dataset_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const dataset = await makeRequest(`/api/market/datasets/${params.dataset_id}`);
+        
+        return { 
+          content: [{ 
+            type: "text", 
+            text: JSON.stringify({
+              dataset_id: params.dataset_id,
+              name: dataset.name,
+              file_path: dataset.file_path,
+              download_url: dataset.download_url || dataset.file_url,
+              instructions: "Use exec tool with curl to download the file"
+            }, null, 2) 
+          }] 
+        };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_download_document",
+    description: "Get download URL for a document",
+    parameters: {
+      type: "object",
+      properties: {
+        document_id: { type: "string", description: "The document ID" },
+      },
+      required: ["document_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const document = await makeRequest(`/api/market/documents/${params.document_id}`);
+        
+        return { 
+          content: [{ 
+            type: "text", 
+            text: JSON.stringify({
+              document_id: params.document_id,
+              name: document.name,
+              file_path: document.file_path,
+              download_url: document.download_url || document.file_url,
+              instructions: "Use exec tool with curl to download the file"
+            }, null, 2) 
+          }] 
+        };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+}

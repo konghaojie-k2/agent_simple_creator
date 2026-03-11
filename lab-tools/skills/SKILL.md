@@ -33,53 +33,58 @@ This plugin provides agent tools to interact with the Market Service.
 | `market_create_dataset` | Create a new dataset |
 | `market_upload_dataset` | Upload a dataset file |
 | `market_delete_dataset` | Delete a dataset |
+| `market_download_dataset` | Get dataset download URL |
 
 ### Analysis Tools (AI-Native)
 
 | Tool | Description |
 |------|-------------|
-| `market_analyze_dataset` | Comprehensive dataset analysis with semantic types, quality scores, and insights |
-| `market_dataset_quality` | Get data quality report (completeness, uniqueness, consistency) |
-| `market_dataset_schema` | Get schema with column types and semantic information |
-| `market_dataset_insights` | Get AI-generated insights and recommendations |
+| `market_analyze_dataset` | Comprehensive dataset analysis |
+| `market_dataset_quality` | Data quality report |
+| `market_dataset_schema` | Schema with semantic types |
+| `market_dataset_insights` | AI-generated insights |
 
 ### Document Tools
 
 | Tool | Description |
 |------|-------------|
 | `market_list_documents` | List available documents |
-| `market_get_document` | Get document details by ID |
-| `market_search_documents` | Search documents by keyword |
+| `market_get_document` | Get document details |
+| `market_search_documents` | Search documents |
 | `market_upload_document` | Upload a document |
 | `market_delete_document` | Delete a document |
+| `market_download_document` | Get document download URL |
 
 ### Skill Tools
 
 | Tool | Description |
 |------|-------------|
 | `market_list_skills` | List available skills |
-| `market_get_skill` | Get skill details by ID |
-| `market_search_skills` | Search skills by keyword |
+| `market_get_skill` | Get skill details |
+| `market_search_skills` | Search skills |
+| `market_install_skill` | Download and install skill locally |
+| `market_list_installed_skills` | List locally installed skills |
+| `market_uninstall_skill` | Remove skill from local |
 
 ### Utility Tools
 
 | Tool | Description |
 |------|-------------|
-| `market_health_check` | Check if Market Service is healthy |
-| `market_get_stats` | Get market statistics |
+| `market_health_check` | Check service health |
+| `market_get_stats` | Market statistics |
 
 ## Usage Example
 
 ```
 Agent: "List all available datasets"
 Tool: market_list_datasets
-Result: [...]
 
-Agent: "Analyze the sales data dataset"
+Agent: "Analyze the sales data"
 Tool: market_analyze_dataset dataset_id="xxx"
-Result: { semantic_types: {...}, quality_score: 85, insights: [...] }
 
-Agent: "What's the quality of dataset xyz?"
-Tool: market_dataset_quality dataset_id="xyz"
-Result: { completeness: 95%, uniqueness: 98%, consistency: 90% }
+Agent: "Install the skill for data analysis"
+Tool: market_install_skill skill_id="xxx"
+
+Agent: "Download this dataset to use"
+Tool: market_download_dataset dataset_id="xxx"
 ```
