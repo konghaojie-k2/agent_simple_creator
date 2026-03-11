@@ -325,3 +325,79 @@ async def delete_skill(
             detail="Skill not found"
         )
     return None
+
+
+# ========== Skill Configuration Endpoints ==========
+
+@router.post("/{skill_id}/config")
+async def configure_skill(
+    skill_id: str,
+    config: dict,
+    user_id: str = Depends(get_current_user),
+):
+    """配置技能参数"""
+    # TODO: Implement actual config storage
+    # For now, return success with config
+    return {
+        "skill_id": skill_id,
+        "config": config,
+        "message": "Skill configuration saved"
+    }
+
+
+@router.get("/{skill_id}/config")
+async def get_skill_config(
+    skill_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """获取技能配置"""
+    # TODO: Return actual config
+    return {
+        "skill_id": skill_id,
+        "config": {},
+        "message": "No configuration found"
+    }
+
+
+@router.post("/{skill_id}/enable")
+async def enable_skill(
+    skill_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """启用技能"""
+    # TODO: Implement actual enable logic
+    return {
+        "skill_id": skill_id,
+        "enabled": True,
+        "message": "Skill enabled"
+    }
+
+
+@router.post("/{skill_id}/disable")
+async def disable_skill(
+    skill_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """禁用技能"""
+    # TODO: Implement actual disable logic
+    return {
+        "skill_id": skill_id,
+        "enabled": False,
+        "message": "Skill disabled"
+    }
+
+
+@router.get("/categories")
+async def list_skill_categories(
+    user_id: str = Depends(get_current_user),
+):
+    """获取技能分类列表"""
+    # TODO: Return actual categories
+    return {
+        "categories": [
+            {"id": "1", "name": "Productivity", "description": "Productivity tools"},
+            {"id": "2", "name": "Data", "description": "Data processing"},
+            {"id": "3", "name": "Communication", "description": "Communication tools"},
+            {"id": "4", "name": "Development", "description": "Development tools"}
+        ]
+    }
