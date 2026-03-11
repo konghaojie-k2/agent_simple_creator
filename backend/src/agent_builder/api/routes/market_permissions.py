@@ -7,15 +7,20 @@ Market Permissions API - 权限管理 API
 - 授权/撤销权限
 - 查看权限列表
 - 检查权限
+
+基于文件夹的权限控制：
+- public/: 所有人可读
+- private/{user_id}/: 仅所有者可读写
+- shared/{resource_id}/: 共享资源
 """
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
+from pathlib import Path
 
-from agent_builder.core.database import get_db
 from agent_builder.myauth_integration.auth import get_current_user
+from agent_builder.services.market.folder_permission_service import folder_permission_service
 
 router = APIRouter(prefix="/api/market", tags=["market-permissions"])
 
@@ -47,10 +52,9 @@ async def grant_permission(
     resource_type: str,
     resource_id: str,
     permission_data: PermissionGrant,
-    db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user),
 ):
-    """授予用户权限"""
+    """授予用户权限（将资源共享给指定用户）"""
     # Validate resource type
     if resource_type not in ["dataset", "document", "skill"]:
         raise HTTPException(status_code=400, detail="Invalid resource type")
@@ -58,6 +62,30 @@ async def grant_permission(
     # Validate permission level
     if permission_data.permission not in ["read", "write", "admin"]:
         raise HTTPException(status_code=400, detail="Invalid permission level")
+
+    # Get current share config or create new one
+    share_config = folder_permission_service.get_share_config(resource_type, resource_id)
+    
+    if share_config is None:
+        # First time sharing - need to move to shared folder
+        # For now, just create the config
+        allowed_users = [permission_data.user_id]
+    else:
+        allowed_users = share_config.get("allowed_users", [])
+        if permission_data.user_id not in allowed_users:
+            allowed_users.append(permission_data.user_id)
+    
+    # Save share config
+    folder_permission_service.set_share_config(resource_type, resource_id, allowed_users, user_id)
+    
+    return {
+        "success": True,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "user_id": permission_data.user_id,
+        "permission": permission_data.permission,
+        "message": f"Permission '{permission_data.permission}' granted to user {permission_data.user_id}"
+    }
     
     # TODO: Implement actual permission granting logic
     # This would update the permissions table in the database
@@ -118,7 +146,8 @@ async def check_permission(
     resource_type: str,
     resource_id: str,
     permission: str = Query(..., description="Required permission level"),
-    db: AsyncSession = Depends(get_db),
+    owner_id: str = Query("", description="Resource owner ID"),
+    visibility: str = Query("private", description="Resource visibility: public, private, shared"),
     user_id: str = Depends(get_current_user),
 ):
     """检查当前用户是否有权限"""
@@ -128,14 +157,23 @@ async def check_permission(
     if permission not in ["read", "write", "admin"]:
         raise HTTPException(status_code=400, detail="Invalid permission level")
     
-    # TODO: Implement actual permission check logic
+    # Check based on permission type
+    if permission == "read":
+        has_permission = folder_permission_service.check_read_permission(
+            resource_type, resource_id, owner_id, user_id, visibility
+        )
+    elif permission in ["write", "admin"]:
+        has_permission = folder_permission_service.check_write_permission(owner_id, user_id)
+    else:
+        has_permission = False
     
     return {
-        "has_permission": True,
+        "has_permission": has_permission,
         "user_id": user_id,
         "resource_type": resource_type,
         "resource_id": resource_id,
-        "permission": permission
+        "permission": permission,
+        "visibility": visibility
     }
 
 
