@@ -32,6 +32,7 @@ from agent_builder.api.routes.soul import router as soul_router
 from agent_builder.api.routes.documents import router as documents_router
 from agent_builder.api.routes.datasets import router as datasets_router
 from agent_builder.api.routes.skills import router as skills_router
+from agent_builder.api.routes.market_permissions import router as market_permissions_router
 
 
 # Global auth framework instance
@@ -110,6 +111,7 @@ app.include_router(agent_skills_router)
 app.include_router(soul_router)  # User SOUL 管理路由
 app.include_router(documents_router)  # Doc Market 路由
 app.include_router(datasets_router)  # Data Market 路由
+app.include_router(market_permissions_router)  # Market 权限/共享/版本等路由
 app.include_router(skills_router)  # Skill Market 路由
 
 
