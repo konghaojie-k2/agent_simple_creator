@@ -655,3 +655,136 @@ export default function (api) {
     },
   });
 }
+
+  // ========== Document Analysis Tools ==========
+
+  api.registerTool({
+    name: "market_analyze_document",
+    description: "Analyze a document and extract metadata, structure, and content summary",
+    parameters: {
+      type: "object",
+      properties: {
+        document_id: { type: "string", description: "The document ID to analyze" },
+      },
+      required: ["document_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const document = await makeRequest(`/api/market/documents/${params.document_id}`);
+        
+        return { 
+          content: [{ 
+            type: "text", 
+            text: JSON.stringify({
+              document_id: params.document_id,
+              name: document.name,
+              type: document.type,
+              size: document.size,
+              uploaded_at: document.created_at,
+              // Would integrate with document analysis service
+              analysis: {
+                word_count: "N/A",
+                page_count: "N/A",
+                summary: "Document analysis requires additional processing"
+              }
+            }, null, 2) 
+          }] 
+        };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  // ========== RAG/Tools Integration ==========
+
+  api.registerTool({
+    name: "market_search_rag",
+    description: "Search across all market content using RAG (datasets, documents, skills)",
+    parameters: {
+      type: "object",
+      properties: {
+        q: { type: "string", description: "Search query" },
+        type: { type: "string", description: "Filter by type: all, dataset, document, skill" },
+        limit: { type: "number", default: 10 },
+      },
+      required: ["q"],
+    },
+    async execute(_id, params) {
+      try {
+        const searchType = params.type || "all";
+        const results = [];
+        
+        if (searchType === "all" || searchType === "dataset") {
+          const datasets = await makeRequest(`/api/market/datasets/search?q=${encodeURIComponent(params.q)}&limit=${params.limit || 5}`);
+          results.push({ type: "dataset", results: datasets });
+        }
+        
+        if (searchType === "all" || searchType === "document") {
+          const documents = await makeRequest(`/api/market/documents/search?q=${encodeURIComponent(params.q)}&limit=${params.limit || 5}`);
+          results.push({ type: "document", results: documents });
+        }
+        
+        if (searchType === "all" || searchType === "skill") {
+          const skills = await makeRequest(`/api/market/skills/search?q=${encodeURIComponent(params.q)}&limit=${params.limit || 5}`);
+          results.push({ type: "skill", results: skills });
+        }
+        
+        return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  // ========== Content Management ==========
+
+  api.registerTool({
+    name: "market_update_dataset",
+    description: "Update dataset metadata",
+    parameters: {
+      type: "object",
+      properties: {
+        dataset_id: { type: "string", description: "Dataset ID to update" },
+        name: { type: "string", description: "New name" },
+        description: { type: "string", description: "New description" },
+        tags: { type: "array", items: { type: "string" }, description: "New tags" },
+        category: { type: "string", description: "New category" },
+      },
+      required: ["dataset_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const { dataset_id, ...updateData } = params;
+        const data = await makeRequest(`/api/market/datasets/${dataset_id}`, "PUT", updateData);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+
+  api.registerTool({
+    name: "market_update_document",
+    description: "Update document metadata",
+    parameters: {
+      type: "object",
+      properties: {
+        document_id: { type: "string", description: "Document ID to update" },
+        name: { type: "string", description: "New name" },
+        description: { type: "string", description: "New description" },
+        category: { type: "string", description: "New category" },
+      },
+      required: ["document_id"],
+    },
+    async execute(_id, params) {
+      try {
+        const { document_id, ...updateData } = params;
+        const data = await makeRequest(`/api/market/documents/${document_id}`, "PUT", updateData);
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error: ${error.message}` }] };
+      }
+    },
+  });
+}

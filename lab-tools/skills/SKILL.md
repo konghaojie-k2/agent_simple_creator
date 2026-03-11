@@ -1,6 +1,6 @@
 ---
 name: lab-tools
-description: Lab Tools plugin for Market Service integration. Provides tools for data, documents, and skills management with AI-Native analysis.
+description: Lab Tools plugin for Market Service integration. Provides comprehensive tools for data, documents, and skills management with AI-Native analysis.
 ---
 
 # Lab Tools
@@ -34,6 +34,7 @@ This plugin provides agent tools to interact with the Market Service.
 | `market_upload_dataset` | Upload a dataset file |
 | `market_delete_dataset` | Delete a dataset |
 | `market_download_dataset` | Get dataset download URL |
+| `market_update_dataset` | Update dataset metadata |
 
 ### Analysis Tools (AI-Native)
 
@@ -54,6 +55,8 @@ This plugin provides agent tools to interact with the Market Service.
 | `market_upload_document` | Upload a document |
 | `market_delete_document` | Delete a document |
 | `market_download_document` | Get document download URL |
+| `market_update_document` | Update document metadata |
+| `market_analyze_document` | Analyze document content |
 
 ### Skill Tools
 
@@ -65,6 +68,12 @@ This plugin provides agent tools to interact with the Market Service.
 | `market_install_skill` | Download and install skill locally |
 | `market_list_installed_skills` | List locally installed skills |
 | `market_uninstall_skill` | Remove skill from local |
+
+### Search Tools
+
+| Tool | Description |
+|------|-------------|
+| `market_search_rag` | Cross-content RAG search |
 
 ### Utility Tools
 
@@ -82,9 +91,9 @@ Tool: market_list_datasets
 Agent: "Analyze the sales data"
 Tool: market_analyze_dataset dataset_id="xxx"
 
+Agent: "Search for machine learning datasets"
+Tool: market_search_rag q="machine learning"
+
 Agent: "Install the skill for data analysis"
 Tool: market_install_skill skill_id="xxx"
-
-Agent: "Download this dataset to use"
-Tool: market_download_dataset dataset_id="xxx"
 ```
